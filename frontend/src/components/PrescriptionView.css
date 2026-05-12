@@ -1,0 +1,153 @@
+.prescription-view {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+.prescription-actions {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+
+.btn-print {
+  padding: 0.75rem 1.5rem;
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-print:hover {
+  background: var(--primary-dark);
+}
+
+.prescription-content {
+  background: white;
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.prescription-header {
+  text-align: center;
+  border-bottom: 2px solid var(--gray-300);
+  padding-bottom: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.prescription-header h1 {
+  font-size: 2rem;
+  color: var(--gray-900);
+  margin-bottom: 1rem;
+}
+
+.prescription-meta {
+  display: flex;
+  justify-content: space-around;
+  color: var(--gray-600);
+}
+
+.prescription-section {
+  margin-bottom: 2rem;
+}
+
+.prescription-section h3 {
+  color: var(--gray-900);
+  margin-bottom: 0.75rem;
+  font-size: 1.25rem;
+  border-bottom: 1px solid var(--gray-200);
+  padding-bottom: 0.5rem;
+}
+
+.prescription-section p {
+  color: var(--gray-700);
+  line-height: 1.6;
+}
+
+.vitals-display {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.vitals-display span {
+  padding: 0.5rem 1rem;
+  background: var(--gray-100);
+  border-radius: 6px;
+  color: var(--gray-700);
+}
+
+.medicines-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+
+.medicines-table th,
+.medicines-table td {
+  padding: 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.medicines-table th {
+  background: var(--gray-100);
+  font-weight: 600;
+  color: var(--gray-900);
+}
+
+.medicines-table td {
+  color: var(--gray-700);
+}
+
+.prescription-footer {
+  text-align: center;
+  margin-top: 3rem;
+  padding-top: 2rem;
+  border-top: 2px solid var(--gray-300);
+  color: var(--gray-600);
+}
+
+@media print {
+  .prescription-actions {
+    display: none;
+  }
+
+  .prescription-content {
+    box-shadow: none;
+    padding: 1rem;
+  }
+
+  .prescription-header h1 {
+    font-size: 1.5rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .prescription-view {
+    padding: 1rem;
+  }
+
+  .prescription-content {
+    padding: 1.5rem;
+  }
+
+  .prescription-meta {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .medicines-table {
+    font-size: 0.875rem;
+  }
+
+  .medicines-table th,
+  .medicines-table td {
+    padding: 0.5rem;
+  }
+}
