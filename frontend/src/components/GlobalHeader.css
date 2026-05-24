@@ -1,0 +1,155 @@
+.global-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 70px;
+  background: white;
+  border-bottom: 1px solid var(--gray-200);
+  box-shadow: var(--shadow-sm);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+}
+
+.header-container {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 2rem;
+}
+
+/* Left side: Clinic branding */
+.header-clinic {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+  min-width: 0; /* Prevent text overflow */
+}
+
+.clinic-logo {
+  font-size: 2rem;
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.clinic-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.clinic-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+}
+
+.clinic-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--gray-900);
+  margin: 0;
+  padding: 0;
+  line-height: 1.2;
+}
+
+.clinic-address {
+  font-size: 0.75rem;
+  color: var(--gray-500);
+  margin: 0;
+  padding: 0;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Right side: Doctor info */
+.header-doctor {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.doctor-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  text-align: right;
+}
+
+.doctor-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--gray-900);
+  margin: 0;
+  padding: 0;
+  line-height: 1.2;
+}
+
+.doctor-qualifications {
+  font-size: 0.7rem;
+  color: var(--gray-500);
+  margin: 0;
+  padding: 0;
+  line-height: 1.2;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .header-container {
+    padding: 0 0.75rem;
+    gap: 1rem;
+  }
+
+  .clinic-info {
+    display: none; /* Hide address on mobile */
+  }
+
+  .clinic-name {
+    font-size: 0.85rem;
+  }
+
+  .doctor-qualifications {
+    font-size: 0.65rem;
+  }
+
+  .doctor-name {
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .global-header {
+    height: 60px;
+  }
+
+  .clinic-logo {
+    font-size: 1.5rem;
+    width: 34px;
+    height: 34px;
+  }
+
+  .clinic-name {
+    font-size: 0.75rem;
+  }
+
+  .doctor-name {
+    font-size: 0.7rem;
+  }
+
+  .doctor-qualifications {
+    display: none;
+  }
+}

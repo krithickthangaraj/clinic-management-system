@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { patientService } from '../../services/patientService';
 import { visitService } from '../../services/visitService';
 import { vitalsService } from '../../services/vitalsService';
-import AgeDobInput from '../../components/AgeDobInput';
 import './PatientRegistration.css';
 
 const STATUS_LABELS = {
@@ -37,9 +36,7 @@ export default function PatientRegistration() {
     phone: '',
     age_years: '',
     age_months: '0',
-    age_days: '',
     dob: '',
-    dob_mode: 'age',
     gender: 'male',
     address: '',
   });
@@ -256,9 +253,6 @@ export default function PatientRegistration() {
       phone: '',
       age_years: '',
       age_months: '0',
-      age_days: '',
-      dob: '',
-      dob_mode: 'age',
       gender: 'male',
       address: '',
     });
@@ -329,9 +323,6 @@ export default function PatientRegistration() {
           age_years: patient.age_years != null ? String(patient.age_years) : '',
           age_months:
             patient.age_months != null ? String(patient.age_months) : '0',
-          age_days: '',
-          dob: '',
-          dob_mode: 'age',
           gender: patient.gender || 'male',
           address: patient.address || '',
         });
@@ -540,31 +531,32 @@ export default function PatientRegistration() {
                   />
                 </div>
               </div>
-              <div className="field">
-                <label>Age / DOB *</label>
-                <AgeDobInput
-                  mode={reg.dob_mode || 'age'}
-                  ageYears={reg.age_years}
-                  ageMonths={reg.age_months}
-                  ageDays={reg.age_days}
-                  dob={reg.dob}
-                  onModeChange={(mode) =>
-                    setReg((prev) => ({ ...prev, dob_mode: mode }))
-                  }
-                  onAgeChange={(years, months, days = '') =>
-                    setReg((prev) => ({
-                      ...prev,
-                      age_years: years,
-                      age_months: months,
-                      age_days: days,
-                    }))
-                  }
-                  onDobChange={(dob) =>
-                    setReg((prev) => ({ ...prev, dob }))
-                  }
-                />
-              </div>
               <div className="grid-3">
+                <div className="field">
+                  <label>Age (Years) *</label>
+                  <input
+                    name="age_years"
+                    type="number"
+                    min="0"
+                    max="150"
+                    value={reg.age_years}
+                    onChange={handleRegChange}
+                    required
+                    placeholder="0"
+                  />
+                </div>
+                <div className="field">
+                  <label>Months</label>
+                  <input
+                    name="age_months"
+                    type="number"
+                    min="0"
+                    max="11"
+                    value={reg.age_months}
+                    onChange={handleRegChange}
+                    placeholder="0"
+                  />
+                </div>
                 <div className="field">
                   <label>Gender *</label>
                   <select
@@ -577,27 +569,27 @@ export default function PatientRegistration() {
                     <option value="other">Other</option>
                   </select>
                 </div>
-                <div className="field">
-                  <label>Contact Number *</label>
-                  <input
-                    name="phone"
-                    type="tel"
-                    value={reg.phone}
-                    onChange={handleRegChange}
-                    required
-                    placeholder="10 digits"
-                    inputMode="numeric"
-                  />
-                </div>
-                <div className="field">
-                  <label>Address</label>
-                  <input
-                    name="address"
-                    value={reg.address}
-                    onChange={handleRegChange}
-                    placeholder="Address"
-                  />
-                </div>
+              </div>
+              <div className="field">
+                <label>Contact Number *</label>
+                <input
+                  name="phone"
+                  type="tel"
+                  value={reg.phone}
+                  onChange={handleRegChange}
+                  required
+                  placeholder="10 digits"
+                  inputMode="numeric"
+                />
+              </div>
+              <div className="field">
+                <label>Address</label>
+                <input
+                  name="address"
+                  value={reg.address}
+                  onChange={handleRegChange}
+                  placeholder="Address"
+                />
               </div>
               <h3 className="vitals-subheading">Vitals</h3>
               <div className="vitals-row">
@@ -660,7 +652,7 @@ export default function PatientRegistration() {
               </div>
               <div className="vitals-row vitals-row-4">
                 <div className="field">
-                  <label>RBS (Random Blood Sugar)</label>
+                  <label>Sugar (mg/dL)</label>
                   <input
                     name="sugar"
                     type="number"
@@ -735,31 +727,32 @@ export default function PatientRegistration() {
                   />
                 </div>
               </div>
-              <div className="field">
-                <label>Age / DOB *</label>
-                <AgeDobInput
-                  mode={reg.dob_mode || 'age'}
-                  ageYears={reg.age_years}
-                  ageMonths={reg.age_months}
-                  ageDays={reg.age_days}
-                  dob={reg.dob}
-                  onModeChange={(mode) =>
-                    setReg((prev) => ({ ...prev, dob_mode: mode }))
-                  }
-                  onAgeChange={(years, months, days = '') =>
-                    setReg((prev) => ({
-                      ...prev,
-                      age_years: years,
-                      age_months: months,
-                      age_days: days,
-                    }))
-                  }
-                  onDobChange={(dob) =>
-                    setReg((prev) => ({ ...prev, dob }))
-                  }
-                />
-              </div>
               <div className="grid-3">
+                <div className="field">
+                  <label>Age (Years) *</label>
+                  <input
+                    name="age_years"
+                    type="number"
+                    min="0"
+                    max="150"
+                    value={reg.age_years}
+                    onChange={handleRegChange}
+                    required
+                    placeholder="0"
+                  />
+                </div>
+                <div className="field">
+                  <label>Months</label>
+                  <input
+                    name="age_months"
+                    type="number"
+                    min="0"
+                    max="11"
+                    value={reg.age_months}
+                    onChange={handleRegChange}
+                    placeholder="0"
+                  />
+                </div>
                 <div className="field">
                   <label>Gender *</label>
                   <select
@@ -772,27 +765,27 @@ export default function PatientRegistration() {
                     <option value="other">Other</option>
                   </select>
                 </div>
-                <div className="field">
-                  <label>Contact Number *</label>
-                  <input
-                    name="phone"
-                    type="tel"
-                    value={reg.phone}
-                    onChange={handleRegChange}
-                    required
-                    placeholder="10 digits"
-                    inputMode="numeric"
-                  />
-                </div>
-                <div className="field">
-                  <label>Address</label>
-                  <input
-                    name="address"
-                    value={reg.address}
-                    onChange={handleRegChange}
-                    placeholder="Address"
-                  />
-                </div>
+              </div>
+              <div className="field">
+                <label>Contact Number *</label>
+                <input
+                  name="phone"
+                  type="tel"
+                  value={reg.phone}
+                  onChange={handleRegChange}
+                  required
+                  placeholder="10 digits"
+                  inputMode="numeric"
+                />
+              </div>
+              <div className="field">
+                <label>Address</label>
+                <input
+                  name="address"
+                  value={reg.address}
+                  onChange={handleRegChange}
+                  placeholder="Address"
+                />
               </div>
               <h3 className="vitals-subheading">Vitals</h3>
               <div className="vitals-row">
@@ -855,7 +848,7 @@ export default function PatientRegistration() {
               </div>
               <div className="vitals-row vitals-row-4">
                 <div className="field">
-                  <label>RBS (Random Blood Sugar)</label>
+                  <label>Sugar (mg/dL)</label>
                   <input
                     name="sugar"
                     type="number"
@@ -969,7 +962,7 @@ export default function PatientRegistration() {
               </div>
               <div className="vitals-row vitals-row-4">
                 <div className="field">
-                  <label>RBS (Random Blood Sugar)</label>
+                  <label>Sugar (mg/dL)</label>
                   <input
                     name="sugar"
                     type="number"

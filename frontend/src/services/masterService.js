@@ -13,6 +13,15 @@ export const masterService = {
     return response.data
   },
 
+  async updateComplaint(id, name) {
+    const response = await api.patch(`/master/complaints/${id}`, { name })
+    return response.data
+  },
+
+  async deleteComplaint(id) {
+    await api.delete(`/master/complaints/${id}`)
+  },
+
   // Diagnosis
   async listDiagnosis(search = '') {
     const response = await api.get('/master/diagnosis', { params: { search } })
@@ -22,6 +31,15 @@ export const masterService = {
   async createDiagnosis(name) {
     const response = await api.post('/master/diagnosis', { name })
     return response.data
+  },
+
+  async updateDiagnosis(id, name) {
+    const response = await api.patch(`/master/diagnosis/${id}`, { name })
+    return response.data
+  },
+
+  async deleteDiagnosis(id) {
+    await api.delete(`/master/diagnosis/${id}`)
   },
 
   // Advice
@@ -36,6 +54,15 @@ export const masterService = {
     return response.data
   },
 
+  async updateAdvice(id, name) {
+    const response = await api.patch(`/master/advice/${id}`, { name })
+    return response.data
+  },
+
+  async deleteAdvice(id) {
+    await api.delete(`/master/advice/${id}`)
+  },
+
   // Lab Tests
   async listLabTests(search = '', testType = null) {
     const params = {}
@@ -48,5 +75,14 @@ export const masterService = {
   async createLabTest(name, testType) {
     const response = await api.post('/master/lab-tests', { name, test_type: testType })
     return response.data
+  },
+
+  async updateLabTest(id, name, testType = 'Lab') {
+    const response = await api.patch(`/master/lab-tests/${id}`, { name, test_type: testType })
+    return response.data
+  },
+
+  async deleteLabTest(id) {
+    await api.delete(`/master/lab-tests/${id}`)
   }
 }

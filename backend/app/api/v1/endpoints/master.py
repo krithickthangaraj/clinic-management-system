@@ -8,9 +8,33 @@ from app.models.enums import UserRole
 from app.models.master import (
     ChiefComplaintMaster, DiagnosisMaster, DoctorAdviceMaster, LabTestMaster
 )
-from app.schemas.master import MasterItemCreate, MasterItemResponse
+from app.schemas.master import MasterItemCreate, MasterItemUpdate, MasterItemResponse
 
 router = APIRouter()
+
+
+def update_master_item(db: Session, model, item_id: int, data: MasterItemUpdate):
+    item = db.query(model).filter(model.id == item_id, model.is_active == True).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    if not data.name or not data.name.strip():
+        raise HTTPException(status_code=400, detail="Name is required")
+
+    item.name = data.name.strip()
+    if hasattr(item, "test_type") and data.test_type:
+        item.test_type = data.test_type
+    db.commit()
+    db.refresh(item)
+    return MasterItemResponse.model_validate(item)
+
+
+def deactivate_master_item(db: Session, model, item_id: int):
+    item = db.query(model).filter(model.id == item_id, model.is_active == True).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+
+    item.is_active = False
+    db.commit()
 
 
 # Chief Complaints Master
@@ -52,6 +76,33 @@ async def create_complaint(
         raise HTTPException(status_code=500, detail=f"Failed to create complaint: {str(e)}")
 
 
+@router.patch("/complaints/{item_id}", response_model=MasterItemResponse)
+async def update_complaint(
+    item_id: int,
+    data: MasterItemUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role([UserRole.DOCTOR, UserRole.ADMIN]))
+):
+    """Update a complaint in master."""
+    try:
+        return update_master_item(db, ChiefComplaintMaster, item_id, data)
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to update complaint: {str(e)}")
+
+
+@router.delete("/complaints/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_complaint(
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role([UserRole.DOCTOR, UserRole.ADMIN]))
+):
+    """Soft-delete a complaint from master."""
+    deactivate_master_item(db, ChiefComplaintMaster, item_id)
+
+
 # Diagnosis Master
 @router.get("/diagnosis", response_model=List[MasterItemResponse])
 async def list_diagnosis(
@@ -91,6 +142,33 @@ async def create_diagnosis(
         raise HTTPException(status_code=500, detail=f"Failed to create diagnosis: {str(e)}")
 
 
+@router.patch("/diagnosis/{item_id}", response_model=MasterItemResponse)
+async def update_diagnosis(
+    item_id: int,
+    data: MasterItemUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role([UserRole.DOCTOR, UserRole.ADMIN]))
+):
+    """Update a diagnosis in master."""
+    try:
+        return update_master_item(db, DiagnosisMaster, item_id, data)
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to update diagnosis: {str(e)}")
+
+
+@router.delete("/diagnosis/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_diagnosis(
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role([UserRole.DOCTOR, UserRole.ADMIN]))
+):
+    """Soft-delete a diagnosis from master."""
+    deactivate_master_item(db, DiagnosisMaster, item_id)
+
+
 # Doctor Advice Master
 @router.get("/advice", response_model=List[MasterItemResponse])
 async def list_advice(
@@ -128,6 +206,33 @@ async def create_advice(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Failed to create advice: {str(e)}")
+
+
+@router.patch("/advice/{item_id}", response_model=MasterItemResponse)
+async def update_advice(
+    item_id: int,
+    data: MasterItemUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role([UserRole.DOCTOR, UserRole.ADMIN]))
+):
+    """Update an advice item in master."""
+    try:
+        return update_master_item(db, DoctorAdviceMaster, item_id, data)
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to update advice: {str(e)}")
+
+
+@router.delete("/advice/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_advice(
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role([UserRole.DOCTOR, UserRole.ADMIN]))
+):
+    """Soft-delete an advice item from master."""
+    deactivate_master_item(db, DoctorAdviceMaster, item_id)
 
 
 # Lab Tests Master
@@ -175,3 +280,30 @@ async def create_lab_test(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Failed to create lab test: {str(e)}")
+
+
+@router.patch("/lab-tests/{item_id}", response_model=MasterItemResponse)
+async def update_lab_test(
+    item_id: int,
+    data: MasterItemUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role([UserRole.DOCTOR, UserRole.ADMIN]))
+):
+    """Update a lab test in master."""
+    try:
+        return update_master_item(db, LabTestMaster, item_id, data)
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to update lab test: {str(e)}")
+
+
+@router.delete("/lab-tests/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_lab_test(
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role([UserRole.DOCTOR, UserRole.ADMIN]))
+):
+    """Soft-delete a lab test from master."""
+    deactivate_master_item(db, LabTestMaster, item_id)
