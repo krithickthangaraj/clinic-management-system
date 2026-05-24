@@ -1,118 +1,18 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import './AgeDobInput.css';
 
-const pad = (value) => String(value).padStart(2, '0');
-
-const formatDateValue = (date) =>
-  `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-
-const parseIntOrZero = (value) => {
-  const parsed = parseInt(value, 10);
-  return Number.isFinite(parsed) ? parsed : 0;
-};
-
-const getDecimalInfantDays = (value) => {
-  const text = String(value || '').trim();
-  if (!/^0\.\d+$/.test(text)) return null;
-  return parseInt(text.split('.')[1], 10) || 0;
-};
-
-const normalizeAge = (ageYears, ageMonths, ageDays) => {
-  const decimalDays = getDecimalInfantDays(ageYears);
-
-  if (decimalDays != null) {
-    return {
-      years: 0,
-      months: 0,
-      days: decimalDays,
-      isDecimalInfant: true,
-    };
-  }
-
-  return {
-    years: parseIntOrZero(ageYears),
-    months: parseIntOrZero(ageMonths),
-    days: parseIntOrZero(ageDays),
-    isDecimalInfant: false,
-  };
-};
-
-const calculateDobFromAge = (ageYears, ageMonths, ageDays) => {
-  const normalized = normalizeAge(ageYears, ageMonths, ageDays);
-  const today = new Date();
-
-  if (normalized.years === 0 && normalized.months === 0 && normalized.days > 0) {
-    const dob = new Date(today);
-    dob.setDate(dob.getDate() - normalized.days);
-    return formatDateValue(dob);
-  }
-
-  if (normalized.years === 0 && normalized.months === 0) {
-    return '';
-  }
-
-  if (normalized.months === 0 && normalized.days === 0) {
-    return `${today.getFullYear() - normalized.years}-01-01`;
-  }
-
-  const dob = new Date(today);
-  dob.setFullYear(dob.getFullYear() - normalized.years);
-  dob.setMonth(dob.getMonth() - normalized.months);
-  dob.setDate(dob.getDate() - normalized.days);
-  return formatDateValue(dob);
-};
-
-const calculateAgeFromDob = (dobStr) => {
-  if (!dobStr) return { years: 0, months: 0, days: 0 };
-
-  const dob = new Date(`${dobStr}T00:00:00`);
-  const today = new Date();
-
-  let years = today.getFullYear() - dob.getFullYear();
-  let months = today.getMonth() - dob.getMonth();
-  let days = today.getDate() - dob.getDate();
-
-  if (days < 0) {
-    months -= 1;
-    days += new Date(today.getFullYear(), today.getMonth(), 0).getDate();
-  }
-
-  if (months < 0) {
-    years -= 1;
-    months += 12;
-  }
-
-  return {
-    years: Math.max(years, 0),
-    months: Math.max(months, 0),
-    days: Math.max(days, 0),
-  };
-};
-
-const formatDateDisplay = (dateStr) => {
-  if (!dateStr) return '-';
-  const date = new Date(`${dateStr}T00:00:00`);
-  return date.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
-};
-
-const formatAgeDisplay = ({ years, months, days }) => {
-  const parts = [];
-  if (years > 0) parts.push(`${years} y`);
-  if (months > 0) parts.push(`${months} m`);
-  if (days > 0 || parts.length === 0) parts.push(`${days} d`);
-  return parts.join(' ');
-};
+/**
+ * AgeDobInput Component
+ * Allows user to choose between entering Age or DOB
+ * Auto-calculates the counterpart (Age → DOB or DOB → Age)
+ * Special handling for infants (decimal years like 0.20 = 20 days)
+ */
 
 export default function AgeDobInput({
-  mode = 'age',
+  mode = 'age', // 'age' or 'dob'
   ageYears = '',
   ageMonths = '0',
-  ageDays = '',
-  dob = '',
+  dob = '', // YYYY-MM-DD format
   onModeChange = () => {},
   onAgeChange = () => {},
   onDobChange = () => {},
@@ -120,115 +20,124 @@ export default function AgeDobInput({
   const [inputMode, setInputMode] = useState(mode);
   const [years, setYears] = useState(ageYears);
   const [months, setMonths] = useState(ageMonths);
-  const [days, setDays] = useState(ageDays);
   const [dobInput, setDobInput] = useState(dob);
+  const [calculatedDob, setCalculatedDob] = useState('');
+  const [calculatedAge, setCalculatedAge] = useState({
+    years: 0,
+    months: 0,
+    days: 0,
+  });
 
-  const normalizedAge = useMemo(
-    () => normalizeAge(years, months, days),
-    [years, months, days]
-  );
-  const showDaysField =
-    inputMode === 'age' &&
-    (normalizedAge.isDecimalInfant ||
-      (parseIntOrZero(years) === 0 && parseIntOrZero(months) === 0));
-  const calculatedDob =
-    inputMode === 'age' ? calculateDobFromAge(years, months, days) : '';
-  const calculatedAge =
-    inputMode === 'dob' ? calculateAgeFromDob(dobInput) : null;
-
+  // Calculate DOB from age
   useEffect(() => {
-    setInputMode(mode);
-  }, [mode]);
-
-  useEffect(() => {
-    setYears(ageYears);
-  }, [ageYears]);
-
-  useEffect(() => {
-    setMonths(ageMonths || '0');
-  }, [ageMonths]);
-
-  useEffect(() => {
-    setDays(ageDays || '');
-  }, [ageDays]);
-
-  useEffect(() => {
-    setDobInput(dob || '');
-  }, [dob]);
-
-  useEffect(() => {
-    if (inputMode === 'age' && calculatedDob) {
-      onDobChange(calculatedDob);
+    if (inputMode === 'age' && (years || months)) {
+      calculateDobFromAge(years, months);
     }
-  }, [calculatedDob, inputMode]);
+  }, [years, months, inputMode]);
 
+  // Calculate age from DOB
   useEffect(() => {
-    if (inputMode === 'dob' && dobInput && calculatedAge) {
-      onAgeChange(
-        String(calculatedAge.years),
-        String(calculatedAge.months),
-        String(calculatedAge.days)
-      );
+    if (inputMode === 'dob' && dobInput) {
+      calculateAgeFromDob(dobInput);
     }
-  }, [dobInput, inputMode, calculatedAge?.years, calculatedAge?.months, calculatedAge?.days]);
+  }, [dobInput, inputMode]);
 
-  const handleModeChange = (e) => {
-    const newMode = e.target.value;
+  const calculateDobFromAge = (ageYears, ageMonths) => {
+    if (!ageYears && !ageMonths) return;
+
+    const today = new Date();
+    let yearsNum = parseFloat(ageYears) || 0;
+    let monthsNum = parseInt(ageMonths) || 0;
+
+    // Handle decimal years (e.g., 0.20 = 20 days old)
+    if (yearsNum > 0 && yearsNum < 1) {
+      const days = Math.round(yearsNum * 365);
+      const dob = new Date(today);
+      dob.setDate(dob.getDate() - days);
+      const dobStr = dob.toISOString().split('T')[0];
+      setCalculatedDob(dobStr);
+      onDobChange(dobStr);
+      return;
+    }
+
+    // Standard age calculation
+    const dob = new Date(today);
+    dob.setFullYear(dob.getFullYear() - Math.floor(yearsNum));
+    dob.setMonth(dob.getMonth() - monthsNum);
+
+    const dobStr = dob.toISOString().split('T')[0];
+    setCalculatedDob(dobStr);
+    onDobChange(dobStr);
+  };
+
+  const calculateAgeFromDob = (dobStr) => {
+    if (!dobStr) return;
+
+    const dob = new Date(dobStr + 'T00:00:00');
+    const today = new Date();
+
+    let years = today.getFullYear() - dob.getFullYear();
+    let months = today.getMonth() - dob.getMonth();
+    let days = today.getDate() - dob.getDate();
+
+    if (days < 0) {
+      months--;
+      const prevMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+      days += prevMonth.getDate();
+    }
+
+    if (months < 0) {
+      years--;
+      months += 12;
+    }
+
+    setCalculatedAge({ years, months, days });
+  };
+
+  const handleModeChange = (newMode) => {
     setInputMode(newMode);
     onModeChange(newMode);
   };
 
   const handleYearsChange = (e) => {
-    const nextYears = e.target.value;
-    const decimalDays = getDecimalInfantDays(nextYears);
-
-    setYears(nextYears);
-    if (decimalDays != null) {
-      setMonths('0');
-      setDays(String(decimalDays));
-      onAgeChange(nextYears, '0', String(decimalDays));
-      return;
-    }
-
-    onAgeChange(nextYears, months, days);
+    setYears(e.target.value);
+    onAgeChange(e.target.value, months);
   };
 
   const handleMonthsChange = (e) => {
-    const nextMonths = e.target.value;
-    setMonths(nextMonths);
-    onAgeChange(years, nextMonths, days);
-  };
-
-  const handleDaysChange = (e) => {
-    const nextDays = e.target.value;
-    setDays(nextDays);
-    onAgeChange(years, months, nextDays);
+    setMonths(e.target.value);
+    onAgeChange(years, e.target.value);
   };
 
   const handleDobChange = (e) => {
-    const nextDob = e.target.value;
-    setDobInput(nextDob);
-    onDobChange(nextDob);
+    setDobInput(e.target.value);
+    onDobChange(e.target.value);
   };
 
   return (
     <div className="age-dob-input">
-      <div className="age-dob-mode-row">
-        <label htmlFor="age_dob_mode">Type</label>
-        <select
-          id="age_dob_mode"
-          value={inputMode}
-          onChange={handleModeChange}
-          className="age-dob-mode-select"
+      {/* Mode Selection */}
+      <div className="mode-selector">
+        <button
+          type="button"
+          className={`mode-btn ${inputMode === 'age' ? 'active' : ''}`}
+          onClick={() => handleModeChange('age')}
         >
-          <option value="age">Enter Age</option>
-          <option value="dob">Enter DOB</option>
-        </select>
+          Enter Age
+        </button>
+        <button
+          type="button"
+          className={`mode-btn ${inputMode === 'dob' ? 'active' : ''}`}
+          onClick={() => handleModeChange('dob')}
+        >
+          Enter DOB
+        </button>
       </div>
 
+      {/* Age Input Mode */}
       {inputMode === 'age' && (
-        <div className="age-dob-content">
-          <div className="age-dob-grid">
+        <div className="mode-content age-mode">
+          <div className="age-inputs">
             <div className="field">
               <label htmlFor="age_years">Years *</label>
               <input
@@ -240,9 +149,10 @@ export default function AgeDobInput({
                 step="0.01"
                 value={years}
                 onChange={handleYearsChange}
-                placeholder="0"
+                placeholder="Age in years (e.g., 25 or 0.20 for infants)"
                 required
               />
+              <small>For infants: enter decimal (0.20 = 20 days old)</small>
             </div>
             <div className="field">
               <label htmlFor="age_months">Months</label>
@@ -257,32 +167,23 @@ export default function AgeDobInput({
                 placeholder="0"
               />
             </div>
-            {showDaysField && (
-              <div className="field">
-                <label htmlFor="age_days">Days</label>
-                <input
-                  id="age_days"
-                  name="age_days"
-                  type="number"
-                  min="0"
-                  max="30"
-                  value={normalizedAge.isDecimalInfant ? normalizedAge.days : days}
-                  onChange={handleDaysChange}
-                  placeholder="0"
-                />
-              </div>
-            )}
           </div>
 
-          <div className="age-dob-calculated">
-            <span>Calculated DOB</span>
-            <strong>{calculatedDob ? formatDateDisplay(calculatedDob) : '-'}</strong>
-          </div>
+          {/* Calculated DOB Display */}
+          {calculatedDob && (
+            <div className="calculated-field">
+              <label>Calculated DOB</label>
+              <div className="calculated-value">
+                {calculateDateDisplay(calculatedDob)}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
+      {/* DOB Input Mode */}
       {inputMode === 'dob' && (
-        <div className="age-dob-content">
+        <div className="mode-content dob-mode">
           <div className="field">
             <label htmlFor="dob_input">Date of Birth *</label>
             <input
@@ -294,14 +195,33 @@ export default function AgeDobInput({
             />
           </div>
 
-          <div className="age-dob-calculated">
-            <span>Calculated Age</span>
-            <strong>
-              {dobInput && calculatedAge ? formatAgeDisplay(calculatedAge) : '-'}
-            </strong>
-          </div>
+          {/* Calculated Age Display */}
+          {dobInput && (
+            <div className="calculated-field">
+              <label>Calculated Age</label>
+              <div className="calculated-value">
+                {calculatedAge.years > 0 && `${calculatedAge.years} y`}
+                {calculatedAge.months > 0 && ` ${calculatedAge.months} m`}
+                {calculatedAge.days > 0 && ` ${calculatedAge.days} d`}
+                {calculatedAge.years === 0 &&
+                  calculatedAge.months === 0 &&
+                  `${calculatedAge.days} days`}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
   );
+}
+
+// Helper: Format date for display
+function calculateDateDisplay(dateStr) {
+  if (!dateStr) return '—';
+  const date = new Date(dateStr + 'T00:00:00');
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
 }

@@ -34,18 +34,7 @@
 
 .clinic-logo {
   font-size: 2rem;
-  width: 42px;
-  height: 42px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   flex-shrink: 0;
-}
-
-.clinic-logo img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
 }
 
 .clinic-info {
@@ -137,8 +126,6 @@
 
   .clinic-logo {
     font-size: 1.5rem;
-    width: 34px;
-    height: 34px;
   }
 
   .clinic-name {

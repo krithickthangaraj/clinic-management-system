@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import MedicineEntry from '../../components/MedicineEntry';
 import { masterService } from '../../services/masterService';
@@ -33,7 +33,7 @@ export default function TemplateEdit() {
   const [saving, setSaving] = useState(false);
   const [templateName, setTemplateName] = useState('');
 
-  // Consultation data - identical to Consultation.jsx
+  // Consultation data
   const [templateComplaints, setTemplateComplaints] = useState([]);
   const [templateDiagnosis, setTemplateDiagnosis] = useState([]);
   const [templateAdvice, setTemplateAdvice] = useState([]);
@@ -48,8 +48,6 @@ export default function TemplateEdit() {
   const [diagnosisMaster, setDiagnosisMaster] = useState([]);
   const [adviceMaster, setAdviceMaster] = useState([]);
   const [labTestsMaster, setLabTestsMaster] = useState([]);
-  const [masterEditing, setMasterEditing] = useState(null);
-  const [masterEditValue, setMasterEditValue] = useState('');
   const [medicines, setMedicines] = useState([]);
   const [orderedTests, setOrderedTests] = useState([]);
   const [newTestName, setNewTestName] = useState('');
@@ -148,17 +146,48 @@ export default function TemplateEdit() {
     }
   };
 
-  const handleAddComplaint = async (e) => {
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
+  const handleSave = async () => {
+    if (!templateName.trim()) {
+      alert('Please enter a template name');
+      return;
     }
+
+    setSaving(true);
+    try {
+      const payload = {
+        name: templateName.trim(),
+        chief_complaints: templateComplaints,
+        diagnosis: templateDiagnosis.join(', '),
+        advice: templateAdvice.join(', '),
+        drugs: medicines,
+        tests: orderedTests,
+        follow_up_date: followUpDate || null,
+        follow_up_notes: followUpNotes,
+      };
+
+      if (templateId) {
+        await templateService.update(templateId, payload);
+        alert('Template updated successfully!');
+      } else {
+        await templateService.create(payload);
+        alert('Template created successfully!');
+      }
+      navigate('/doctor/queue');
+    } catch (err) {
+      console.error('Failed to save template:', err);
+      alert(err.response?.data?.detail || 'Failed to save template');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAddComplaint = async () => {
     const inputValue = complaintInput.trim();
     if (!inputValue) return;
 
     try {
       const created = await masterService.createComplaint(inputValue);
-      setTemplateComplaints([...templateComplaints, inputValue]);
+      setTemplateComplaints([...templateComplaints, created.name]);
       setComplaintInput('');
       await loadMasters();
     } catch (err) {
@@ -167,17 +196,13 @@ export default function TemplateEdit() {
     }
   };
 
-  const handleAddDiagnosis = async (e) => {
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
+  const handleAddDiagnosis = async () => {
     const inputValue = diagnosisInput.trim();
     if (!inputValue) return;
 
     try {
       const created = await masterService.createDiagnosis(inputValue);
-      setTemplateDiagnosis([...templateDiagnosis, inputValue]);
+      setTemplateDiagnosis([...templateDiagnosis, created.name]);
       setDiagnosisInput('');
       await loadMasters();
     } catch (err) {
@@ -186,17 +211,13 @@ export default function TemplateEdit() {
     }
   };
 
-  const handleAddAdvice = async (e) => {
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
+  const handleAddAdvice = async () => {
     const inputValue = adviceInput.trim();
     if (!inputValue) return;
 
     try {
       const created = await masterService.createAdvice(inputValue);
-      setTemplateAdvice([...templateAdvice, inputValue]);
+      setTemplateAdvice([...templateAdvice, created.name]);
       setAdviceInput('');
       await loadMasters();
     } catch (err) {
@@ -256,58 +277,12 @@ export default function TemplateEdit() {
     setOrderedTests(orderedTests.filter((_, i) => i !== index));
   };
 
-  const handleSave = async () => {
-    if (!templateName.trim()) {
-      alert('Please enter a template name');
-      return;
-    }
-
-    if (templateComplaints.length === 0) {
-      alert('Please add at least one chief complaint');
-      return;
-    }
-
-    if (templateDiagnosis.length === 0) {
-      alert('Please add at least one diagnosis');
-      return;
-    }
-
-    setSaving(true);
-    try {
-      const payload = {
-        name: templateName.trim(),
-        chief_complaints: templateComplaints,
-        diagnosis: templateDiagnosis.join(', '),
-        advice: templateAdvice.join(', '),
-        drugs: medicines,
-        tests: orderedTests,
-        follow_up_date: followUpDate || null,
-        follow_up_notes: followUpNotes,
-      };
-
-      if (templateId) {
-        await templateService.update(templateId, payload);
-        alert('Template updated successfully!');
-      } else {
-        await templateService.create(payload);
-        alert('Template created successfully!');
-      }
-      navigate('/doctor/queue');
-    } catch (err) {
-      console.error('Failed to save template:', err);
-      alert(err.response?.data?.detail || 'Failed to save template');
-    } finally {
-      setSaving(false);
-    }
-  };
-
   if (loading) {
     return <div className="loading-container">Loading template...</div>;
   }
 
   return (
     <div className="consultation-layout">
-      {/* Sticky Header */}
       <div className="patient-sticky-header">
         <div className="header-top">
           <button
@@ -318,7 +293,6 @@ export default function TemplateEdit() {
           </button>
           <div className="patient-main-info">
             <h2>{templateId ? 'Edit Template' : 'Create New Template'}</h2>
-            <span className="patient-meta">Template Name: {templateName || 'Unnamed'}</span>
           </div>
         </div>
       </div>
@@ -327,7 +301,7 @@ export default function TemplateEdit() {
         <div className="consultation-content">
           {/* Template Name */}
           <section className="consult-card">
-            <h3>Template Name *</h3>
+            <h3>Template Name</h3>
             <input
               type="text"
               value={templateName}
@@ -341,7 +315,7 @@ export default function TemplateEdit() {
           {/* Chief Complaints */}
           <section className="consult-card compact-card single-row-section">
             <div className="form-group">
-              <label>Chief Complaints *</label>
+              <label>Chief Complaints</label>
               <div className="chips-input-group">
                 <div className="chips-list">
                   {templateComplaints.map((complaint, index) => (
@@ -363,7 +337,7 @@ export default function TemplateEdit() {
                     value={complaintInput}
                     onChange={(e) => setComplaintInput(e.target.value)}
                     onKeyPress={(e) =>
-                      e.key === 'Enter' && handleAddComplaint(e)
+                      e.key === 'Enter' && handleAddComplaint()
                     }
                     placeholder="Type and press Enter"
                     className="modern-input"
@@ -383,7 +357,7 @@ export default function TemplateEdit() {
           {/* Diagnosis */}
           <section className="consult-card compact-card single-row-section">
             <div className="form-group">
-              <label>Diagnosis *</label>
+              <label>Diagnosis</label>
               <div className="chips-input-group">
                 <div className="chips-list">
                   {templateDiagnosis.map((diagnosis, index) => (
@@ -405,7 +379,7 @@ export default function TemplateEdit() {
                     value={diagnosisInput}
                     onChange={(e) => setDiagnosisInput(e.target.value)}
                     onKeyPress={(e) =>
-                      e.key === 'Enter' && handleAddDiagnosis(e)
+                      e.key === 'Enter' && handleAddDiagnosis()
                     }
                     placeholder="Type and press Enter"
                     className="modern-input"
@@ -464,7 +438,7 @@ export default function TemplateEdit() {
             </div>
           </section>
 
-          {/* Doctor Advice */}
+          {/* Advice */}
           <section className="consult-card compact-card single-row-section">
             <div className="form-group">
               <label>Doctor Advice</label>
@@ -488,9 +462,7 @@ export default function TemplateEdit() {
                     type="text"
                     value={adviceInput}
                     onChange={(e) => setAdviceInput(e.target.value)}
-                    onKeyPress={(e) =>
-                      e.key === 'Enter' && handleAddAdvice(e)
-                    }
+                    onKeyPress={(e) => e.key === 'Enter' && handleAddAdvice()}
                     placeholder="Type and press Enter"
                     className="modern-input"
                   />
@@ -506,7 +478,7 @@ export default function TemplateEdit() {
             </div>
           </section>
 
-          {/* Investigation / Tests */}
+          {/* Investigation/Tests */}
           <section className="consult-card compact-card single-row-section">
             <div className="form-group">
               <label>Investigation / Tests</label>
