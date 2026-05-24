@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { visitService } from '../../services/visitService'
 import './DoctorQueue.css'
 
@@ -10,11 +10,7 @@ const STATUS_COMPLETED = ['consulted', 'completed']
 export default function DoctorQueue() {
   const [visits, setVisits] = useState([])
   const [loading, setLoading] = useState(true)
-  const [searchParams, setSearchParams] = useSearchParams()
-  const initialFilter = ['all', 'waiting', 'pending', 'completed'].includes(searchParams.get('filter'))
-    ? searchParams.get('filter')
-    : 'all'
-  const [filter, setFilter] = useState(initialFilter) // 'all' | 'waiting' | 'pending' | 'completed'
+  const [filter, setFilter] = useState('all') // 'all' | 'waiting' | 'pending' | 'completed'
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -48,12 +44,6 @@ export default function DoctorQueue() {
   const countPending = visits.filter((v) => v.status === STATUS_PENDING).length
   const countCompleted = visits.filter((v) => STATUS_COMPLETED.includes(v.status)).length
 
-  const updateFilter = (nextFilter) => {
-    setFilter(nextFilter)
-    if (nextFilter === 'all') setSearchParams({})
-    else setSearchParams({ filter: nextFilter })
-  }
-
   const getStatusLabel = (s) => {
     if (s === STATUS_WAITING) return 'Waiting'
     if (s === STATUS_PENDING) return 'In consultation'
@@ -75,8 +65,16 @@ export default function DoctorQueue() {
       <div className="summary-cards">
         <button
           type="button"
+          className={`summary-card ${filter === 'all' ? 'active' : ''}`}
+          onClick={() => setFilter('all')}
+        >
+          <span className="summary-value">{countTotal}</span>
+          <span className="summary-label">Total Patients</span>
+        </button>
+        <button
+          type="button"
           className={`summary-card ${filter === 'waiting' ? 'active' : ''}`}
-          onClick={() => updateFilter('waiting')}
+          onClick={() => setFilter('waiting')}
         >
           <span className="summary-value">{countWaiting}</span>
           <span className="summary-label">Patients Waiting</span>
@@ -84,7 +82,7 @@ export default function DoctorQueue() {
         <button
           type="button"
           className={`summary-card ${filter === 'pending' ? 'active' : ''}`}
-          onClick={() => updateFilter('pending')}
+          onClick={() => setFilter('pending')}
         >
           <span className="summary-value">{countPending}</span>
           <span className="summary-label">Pending</span>
@@ -92,18 +90,10 @@ export default function DoctorQueue() {
         <button
           type="button"
           className={`summary-card ${filter === 'completed' ? 'active' : ''}`}
-          onClick={() => updateFilter('completed')}
+          onClick={() => setFilter('completed')}
         >
           <span className="summary-value">{countCompleted}</span>
           <span className="summary-label">Completed</span>
-        </button>
-        <button
-          type="button"
-          className={`summary-card ${filter === 'all' ? 'active' : ''}`}
-          onClick={() => updateFilter('all')}
-        >
-          <span className="summary-value">{countTotal}</span>
-          <span className="summary-label">Total Patients</span>
         </button>
       </div>
 
