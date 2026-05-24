@@ -1,5 +1,5 @@
-from pydantic import BaseModel
-from datetime import datetime
+from pydantic import BaseModel, field_validator
+from datetime import date, datetime, time
 from typing import Optional, List
 from app.models.enums import VisitStatus
 
@@ -16,6 +16,23 @@ class VisitUpdate(BaseModel):
     follow_up_date: Optional[datetime] = None
     follow_up_notes: Optional[str] = None
     status: Optional[VisitStatus] = None
+
+    @field_validator("follow_up_date", mode="before")
+    @classmethod
+    def parse_follow_up_date(cls, value):
+        if value in (None, ""):
+            return None
+        if isinstance(value, datetime):
+            return value
+        if isinstance(value, date):
+            return datetime.combine(value, time.min)
+        if isinstance(value, str):
+            trimmed = value.strip()
+            if not trimmed:
+                return None
+            if len(trimmed) == 10 and trimmed[4] == "-" and trimmed[7] == "-":
+                return datetime.fromisoformat(f"{trimmed}T00:00:00")
+        return value
 
 
 class VisitResponse(BaseModel):

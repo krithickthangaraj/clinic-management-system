@@ -25,6 +25,8 @@ const DOSAGE_OPTIONS = [
   '2 tablets',
 ];
 
+const toDateInputValue = (value) => (value ? String(value).slice(0, 10) : '');
+
 export default function TemplateEdit() {
   const { templateId } = useParams();
   const navigate = useNavigate();
@@ -125,7 +127,9 @@ export default function TemplateEdit() {
         setOrderedTests(tests);
 
         // Parse follow-up
-        if (data.follow_up_date) setFollowUpDate(data.follow_up_date);
+        if (data.follow_up_date) {
+          setFollowUpDate(toDateInputValue(data.follow_up_date));
+        }
         if (data.follow_up_notes) setFollowUpNotes(data.follow_up_notes);
       } else {
         // Create mode - initialize empty
