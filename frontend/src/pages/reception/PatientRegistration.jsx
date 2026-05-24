@@ -4,6 +4,7 @@ import { patientService } from '../../services/patientService';
 import { visitService } from '../../services/visitService';
 import { vitalsService } from '../../services/vitalsService';
 import './PatientRegistration.css';
+import AgeDobInput from '../../components/AgeDobInput';
 
 const STATUS_LABELS = {
   registered: 'Vitals',

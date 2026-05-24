@@ -50,19 +50,15 @@ export default function PrescriptionView({
   const handlePrint = useReactToPrint({
     content: () => prescriptionRef.current,
     documentTitle: `Prescription-${visit?.visit_number || visitId}`,
-    onBeforePrint: async () => {
+    onAfterPrint: async () => {
       try {
         const prescription = await prescriptionService.getByVisit(visitId);
-        if (prescription && !prescription.printed_at) {
-          await prescriptionService.markPrinted(prescription.id);
-        }
+        await prescriptionService.markPrinted(prescription.id);
       } catch (err) {
         console.error('Failed to mark as printed:', err);
+      } finally {
+        onPrinted?.();
       }
-    },
-    onAfterPrint: () => {
-      // Always navigate back after print dialog closes (printed or cancelled)
-      onPrinted?.();
     },
   });
 

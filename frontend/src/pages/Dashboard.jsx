@@ -80,6 +80,13 @@ export default function Dashboard() {
             color: '#7c3aed',
             desc: 'Pending tests',
           },
+          {
+            path: '/admin/config',
+            label: 'Admin Config',
+            icon: '⚙️',
+            color: '#0f766e',
+            desc: 'Clinic profile and libraries',
+          },
         ];
       default:
         return [];

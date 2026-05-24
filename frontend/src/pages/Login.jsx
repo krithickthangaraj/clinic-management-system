@@ -13,6 +13,7 @@ export default function Login() {
   const { login } = useAuth();
   const clinic = useClinic();
   const navigate = useNavigate();
+  const isLogoImage = /^https?:\/\//i.test(clinic.clinicLogoUrl || '');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -38,7 +39,13 @@ export default function Login() {
         {/* LEFT COLUMN: Clinic Info */}
         <div className="login-left">
           <div className="clinic-banner">
-            <div className="clinic-logo-large">{clinic.clinicLogoUrl}</div>
+            <div className="clinic-logo-large">
+              {isLogoImage ? (
+                <img src={clinic.clinicLogoUrl} alt={`${clinic.clinicName} logo`} />
+              ) : (
+                clinic.clinicLogoUrl
+              )}
+            </div>
             <h2 className="clinic-title">{clinic.clinicName}</h2>
             <p className="clinic-detail">{clinic.clinicAddress}</p>
             <div className="clinic-divider"></div>
