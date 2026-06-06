@@ -6,11 +6,6 @@ import { masterService } from '../../services/masterService';
 import { templateService } from '../../services/templateService';
 import './AdminConfig.css';
 
-const emptyTemplate = {
-  name: '',
-  drugsText: '[\n  {\n    "drug_name": "",\n    "dosage": "",\n    "frequency": "",\n    "number_of_days": 0,\n    "quantity": 0,\n    "instructions": ""\n  }\n]',
-};
-
 const toEditableClinicProfile = (clinic) => ({
   clinicName: clinic.clinicName || '',
   clinicAddress: clinic.clinicAddress || '',
@@ -33,11 +28,6 @@ const toEditableClinicProfile = (clinic) => ({
   enableTestManagement: clinic.enableTestManagement ?? true,
   multiClinicSupport: clinic.multiClinicSupport ?? false,
 });
-
-const parseTemplateDrugs = (text) => {
-  const parsed = JSON.parse(text || '[]');
-  return Array.isArray(parsed) ? parsed : [];
-};
 
 export default function AdminConfig() {
   const clinic = useClinic();
@@ -344,48 +334,7 @@ function LibraryEditor({ title, items, setItems, create, update, remove }) {
 }
 
 function TemplateLibrary({ templates, setTemplates }) {
-  const [draft, setDraft] = useState(emptyTemplate);
-  const [editingId, setEditingId] = useState(null);
-  const [error, setError] = useState('');
-
-  const saveTemplate = async (e) => {
-    e.preventDefault();
-    setError('');
-
-    try {
-      const payload = {
-        name: draft.name.trim(),
-        chief_complaints: [],
-        diagnosis: '',
-        advice: '',
-        drugs: parseTemplateDrugs(draft.drugsText),
-      };
-      if (!payload.name) return;
-
-      if (editingId) {
-        const updated = await templateService.update(editingId, payload);
-        setTemplates((current) =>
-          current.map((item) => (item.id === editingId ? updated : item))
-        );
-      } else {
-        const created = await templateService.create(payload);
-        setTemplates((current) => [...current, created]);
-      }
-
-      setDraft(emptyTemplate);
-      setEditingId(null);
-    } catch (err) {
-      setError(err.message || 'Template drugs must be valid JSON.');
-    }
-  };
-
-  const editTemplate = (template) => {
-    setEditingId(template.id);
-    setDraft({
-      name: template.name,
-      drugsText: JSON.stringify(JSON.parse(template.drugs || '[]'), null, 2),
-    });
-  };
+  const navigate = useNavigate();
 
   const deleteTemplate = async (template) => {
     if (!confirm(`Delete "${template.name}"?`)) return;
@@ -400,41 +349,33 @@ function TemplateLibrary({ templates, setTemplates }) {
         <span>{templates.length} templates</span>
       </div>
 
-      {error && <div className="admin-error">{error}</div>}
-
-      <form className="template-form" onSubmit={saveTemplate}>
-        <input
-          value={draft.name}
-          onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-          placeholder="Template name"
-        />
-        <textarea
-          value={draft.drugsText}
-          onChange={(e) => setDraft({ ...draft, drugsText: e.target.value })}
-          rows="7"
-          spellCheck="false"
-        />
-        <div className="template-actions-row">
-          {editingId && (
-            <button type="button" className="btn-ghost" onClick={() => {
-              setEditingId(null);
-              setDraft(emptyTemplate);
-            }}>
-              Cancel
-            </button>
-          )}
-          <button type="submit" className="btn-primary">
-            {editingId ? 'Save Template' : 'Add Template'}
-          </button>
-        </div>
-      </form>
+      <div className="template-actions-row">
+        <button
+          type="button"
+          className="btn-primary"
+          onClick={() =>
+            navigate('/doctor/template/new', { state: { returnTo: '/admin/config' } })
+          }
+        >
+          Create New Template
+        </button>
+      </div>
 
       <div className="library-list">
         {templates.map((template) => (
           <div key={template.id} className="library-item">
             <span>{template.name}</span>
             <div className="library-actions">
-              <button type="button" onClick={() => editTemplate(template)}>Edit</button>
+              <button
+                type="button"
+                onClick={() =>
+                  navigate(`/doctor/template/${template.id}`, {
+                    state: { returnTo: '/admin/config' },
+                  })
+                }
+              >
+                Edit Template
+              </button>
               <button type="button" className="danger" onClick={() => deleteTemplate(template)}>
                 Delete
               </button>

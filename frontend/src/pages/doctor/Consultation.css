@@ -127,6 +127,18 @@
   font-weight: 500;
 }
 
+.template-title-block {
+  flex: 1;
+  min-width: 280px;
+}
+
+.template-name-inline {
+  width: min(520px, 100%);
+  margin-top: 0.25rem;
+  padding: 0.42rem 0.65rem;
+  font-size: 0.86rem;
+}
+
 .header-actions {
   margin-left: auto;
   display: flex;
@@ -669,6 +681,10 @@
   grid-template-columns: minmax(0, 1.45fr) minmax(260px, 0.55fr);
   gap: 0.75rem;
   margin-bottom: 0;
+}
+
+.template-followup-grid {
+  grid-template-columns: 1fr;
 }
 
 /* Follow-up Section Redesign */

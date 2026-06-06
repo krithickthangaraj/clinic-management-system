@@ -375,6 +375,10 @@ export default function Consultation() {
         diagnosis: diagnosisForTemplate,
         advice: adviceForTemplate,
         drugs: medicines,
+        vitals,
+        tests: orderedTests,
+        follow_up_date: followUpDate || null,
+        follow_up_notes: followUpNotes,
       });
       alert('Template saved successfully!');
       setNewTemplateName('');
@@ -466,6 +470,38 @@ export default function Consultation() {
           ? JSON.parse(template.drugs || '[]')
           : template.drugs || [];
       setMedicines(templateDrugs);
+
+      const templateTests =
+        typeof template.tests === 'string'
+          ? JSON.parse(template.tests || '[]')
+          : template.tests || [];
+      setOrderedTests(templateTests);
+
+      if (template.follow_up_date) {
+        setFollowUpDate(String(template.follow_up_date).slice(0, 10));
+        setSelectedFollowUpOption('custom');
+      } else {
+        setFollowUpDate('');
+        setSelectedFollowUpOption(null);
+      }
+      setFollowUpNotes(template.follow_up_notes || '');
+
+      const templateVitals =
+        typeof template.vitals === 'string'
+          ? JSON.parse(template.vitals || '{}')
+          : template.vitals || null;
+      if (templateVitals && Object.keys(templateVitals).length > 0) {
+        try {
+          const updatedVitals = await vitalsService.updateByVisit(
+            visitId,
+            templateVitals
+          );
+          setVitals(updatedVitals);
+        } catch (err) {
+          console.error('Failed to apply template vitals:', err);
+          setVitals((current) => ({ ...(current || {}), ...templateVitals }));
+        }
+      }
 
       // Load advice
       if (template.advice) {
