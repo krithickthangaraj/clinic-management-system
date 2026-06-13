@@ -9,6 +9,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './contexts/AuthContext';
 import { ClinicProvider } from './contexts/ClinicContext';
 import AdminConfig from './pages/admin/AdminConfig';
+import MedicineAdmin from './pages/admin/MedicineAdmin';
 import Dashboard from './pages/Dashboard';
 import Consultation from './pages/doctor/Consultation';
 import DoctorQueue from './pages/doctor/DoctorQueue';
@@ -100,6 +101,16 @@ function App() {
                 <ProtectedRoute allowedRoles={['admin']}>
                   <AppLayout>
                     <AdminConfig />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/medicines"
+              element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <AppLayout>
+                    <MedicineAdmin />
                   </AppLayout>
                 </ProtectedRoute>
               }

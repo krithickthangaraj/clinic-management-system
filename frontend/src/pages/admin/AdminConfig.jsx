@@ -165,6 +165,14 @@ export default function AdminConfig() {
         >
           Dashboard
         </button>
+        <button
+          type="button"
+          className="btn-secondary"
+          onClick={() => navigate('/admin/medicines')}
+          style={{ marginLeft: 8 }}
+        >
+          Manage Medicines
+        </button>
       </header>
 
       {message && <div className="admin-toast">{message}</div>}

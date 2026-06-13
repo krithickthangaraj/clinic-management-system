@@ -43,6 +43,8 @@ export default function MedicineEntry({
   const [instructions, setInstructions] = useState('');
 
   const [drugOptions, setDrugOptions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [typeOptions, setTypeOptions] = useState([]);
   const [brandOptions, setBrandOptions] = useState([]);
   const [dosageOptionsRemote, setDosageOptionsRemote] = useState([]);
@@ -53,6 +55,7 @@ export default function MedicineEntry({
   const [selectedDosageId, setSelectedDosageId] = useState(null);
 
   const drugInputRef = useRef(null);
+  const debounceRef = useRef(null);
 
   const calculateQuantity = () => {
     const days = parseInt(numberOfDays) || 0;
@@ -168,31 +171,76 @@ export default function MedicineEntry({
               ref={drugInputRef}
               type="text"
               value={drugName}
-              onChange={async (e) => {
+              onChange={(e) => {
                 const v = e.target.value;
                 setDrugName(v);
-                // fetch suggestions
-                try {
-                  const res = await medicineService.searchDrugs(v);
-                  setDrugOptions(res || []);
-                  // if exact match, set selectedDrugId
-                  const exact = (res || []).find(
-                    (r) => r.name.toLowerCase() === v.toLowerCase()
+                setHighlightedIndex(-1);
+                setShowSuggestions(true);
+                // debounce API calls
+                if (debounceRef.current) clearTimeout(debounceRef.current);
+                debounceRef.current = setTimeout(async () => {
+                  try {
+                    const res = await medicineService.searchDrugs(v);
+                    setDrugOptions(res || []);
+                    // if exact match, set selectedDrugId
+                    const exact = (res || []).find(
+                      (r) => r.name.toLowerCase() === v.toLowerCase()
+                    );
+                    setSelectedDrugId(exact ? exact.id : null);
+                  } catch (err) {
+                    // ignore
+                  }
+                }, 300);
+              }}
+              onKeyDown={(e) => {
+                if (!showSuggestions) return;
+                if (e.key === 'ArrowDown') {
+                  e.preventDefault();
+                  setHighlightedIndex((i) =>
+                    Math.min(i + 1, (drugOptions || []).length - 1)
                   );
-                  setSelectedDrugId(exact ? exact.id : null);
-                } catch (err) {
-                  // ignore
+                } else if (e.key === 'ArrowUp') {
+                  e.preventDefault();
+                  setHighlightedIndex((i) => Math.max(i - 1, 0));
+                } else if (e.key === 'Enter') {
+                  if (highlightedIndex >= 0 && drugOptions[highlightedIndex]) {
+                    const sel = drugOptions[highlightedIndex];
+                    setDrugName(sel.name);
+                    setSelectedDrugId(sel.id);
+                    setShowSuggestions(false);
+                    setDrugOptions([]);
+                    e.preventDefault();
+                  }
+                } else if (e.key === 'Escape') {
+                  setShowSuggestions(false);
                 }
               }}
               placeholder="Search drug..."
               list="drug-suggestions"
               autoComplete="off"
             />
-            <datalist id="drug-suggestions">
-              {drugOptions.map((d) => (
-                <option key={d.id} value={d.name} />
-              ))}
-            </datalist>
+            {/* Suggestions dropdown */}
+            {showSuggestions && drugOptions && drugOptions.length > 0 && (
+              <ul className="drug-suggestions-list">
+                {drugOptions.map((d, idx) => (
+                  <li
+                    key={d.id}
+                    className={idx === highlightedIndex ? 'highlighted' : ''}
+                    onMouseDown={(ev) => {
+                      // use onMouseDown to avoid blur before click
+                      ev.preventDefault();
+                      setDrugName(d.name);
+                      setSelectedDrugId(d.id);
+                      setShowSuggestions(false);
+                      setDrugOptions([]);
+                      drugInputRef.current?.focus();
+                    }}
+                  >
+                    {d.name}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
 
           <select

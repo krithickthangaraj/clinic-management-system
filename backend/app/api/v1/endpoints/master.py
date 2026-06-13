@@ -337,14 +337,18 @@ async def create_medicine_drug(
 ):
     if not data.name or not data.name.strip():
         raise HTTPException(status_code=400, detail="Drug name is required")
-    existing = db.query(MedicineDrug).filter(MedicineDrug.name.ilike(data.name.strip())).first()
-    if existing:
-        return MedicineItemResponse.model_validate(existing)
-    item = MedicineDrug(name=data.name.strip())
-    db.add(item)
-    db.commit()
-    db.refresh(item)
-    return MedicineItemResponse.model_validate(item)
+    try:
+        existing = db.query(MedicineDrug).filter(MedicineDrug.name.ilike(data.name.strip())).first()
+        if existing:
+            return MedicineItemResponse.model_validate(existing)
+        item = MedicineDrug(name=data.name.strip())
+        db.add(item)
+        db.commit()
+        db.refresh(item)
+        return MedicineItemResponse.model_validate(item)
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to create drug: {str(e)}")
 
 
 # Medicine Types
@@ -407,6 +411,15 @@ async def create_medicine_brand(
 ):
     if not data.name or not data.name.strip():
         raise HTTPException(status_code=400, detail="Brand name is required")
+    # Prevent duplicate brand for same drug/type
+    existing = db.query(MedicineBrand).filter(
+        MedicineBrand.drug_id == data.drug_id,
+        MedicineBrand.type_id == data.type_id,
+        MedicineBrand.name.ilike(data.name.strip()),
+        MedicineBrand.is_active == True,
+    ).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Brand already exists for this drug/type")
     item = MedicineBrand(name=data.name.strip(), drug_id=data.drug_id, type_id=data.type_id)
     db.add(item)
     db.commit()
@@ -439,6 +452,14 @@ async def create_medicine_dosage(
 ):
     if not data.label or not data.label.strip():
         raise HTTPException(status_code=400, detail="Dosage label is required")
+    # Prevent duplicate dosage label for the same brand
+    existing = db.query(MedicineDosage).filter(
+        MedicineDosage.brand_id == data.brand_id,
+        MedicineDosage.label.ilike(data.label.strip()),
+        MedicineDosage.is_active == True,
+    ).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Dosage already exists for this brand")
     item = MedicineDosage(brand_id=data.brand_id, label=data.label.strip(), default_instruction=data.default_instruction)
     db.add(item)
     db.commit()
@@ -498,6 +519,16 @@ async def update_medicine_brand(item_id: int, data: MedicineBrandCreate, db: Ses
         raise HTTPException(status_code=404, detail="Brand not found")
     if not data.name or not data.name.strip():
         raise HTTPException(status_code=400, detail="Name is required")
+    # Check duplicate against other active brands
+    dup = db.query(MedicineBrand).filter(
+        MedicineBrand.id != item_id,
+        MedicineBrand.drug_id == data.drug_id,
+        MedicineBrand.type_id == data.type_id,
+        MedicineBrand.name.ilike(data.name.strip()),
+        MedicineBrand.is_active == True,
+    ).first()
+    if dup:
+        raise HTTPException(status_code=400, detail="Another brand with the same name exists for this drug/type")
     item.name = data.name.strip()
     item.drug_id = data.drug_id
     item.type_id = data.type_id
@@ -522,6 +553,15 @@ async def update_medicine_dosage(item_id: int, data: MedicineDosageCreate, db: S
         raise HTTPException(status_code=404, detail="Dosage not found")
     if not data.label or not data.label.strip():
         raise HTTPException(status_code=400, detail="Label is required")
+    # Check duplicate label for same brand excluding self
+    dup = db.query(MedicineDosage).filter(
+        MedicineDosage.id != item_id,
+        MedicineDosage.brand_id == data.brand_id,
+        MedicineDosage.label.ilike(data.label.strip()),
+        MedicineDosage.is_active == True,
+    ).first()
+    if dup:
+        raise HTTPException(status_code=400, detail="Another dosage with same label exists for this brand")
     item.label = data.label.strip()
     item.brand_id = data.brand_id
     item.default_instruction = data.default_instruction

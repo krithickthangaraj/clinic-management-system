@@ -17,13 +17,23 @@ app = FastAPI(
 )
 
 # CORS middleware
+origins = settings.cors_origins_list
+# In development allow all origins to simplify local testing
+if settings.ENVIRONMENT == 'development':
+    origins = ['*']
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins_list,
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# simple startup log
+@app.on_event('startup')
+async def _startup():
+    print(f"Starting Clinic API (env={settings.ENVIRONMENT}), CORS origins={origins}")
 
 # Include API routes
 app.include_router(api_router, prefix="/api/v1")

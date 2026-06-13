@@ -25,14 +25,14 @@ class MedicineDosageCreate(BaseModel):
 
 class MedicineItemResponse(BaseModel):
     id: int
-    name: Optional[str]
-    label: Optional[str]
-    drug_id: Optional[int]
-    brand_id: Optional[int]
-    type_id: Optional[int]
-    default_instruction: Optional[str]
-    is_active: Optional[bool]
-    created_at: Optional[datetime]
+    name: Optional[str] = None
+    label: Optional[str] = None
+    drug_id: Optional[int] = None
+    brand_id: Optional[int] = None
+    type_id: Optional[int] = None
+    default_instruction: Optional[str] = None
+    is_active: Optional[bool] = None
+    created_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True

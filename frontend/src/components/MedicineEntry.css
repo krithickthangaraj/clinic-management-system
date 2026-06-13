@@ -144,6 +144,30 @@
   border-top: 1px dashed var(--gray-100);
 }
 
+.drug-suggestions-list {
+  position: absolute;
+  z-index: 60;
+  top: 42px;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid var(--gray-200);
+  border-radius: 6px;
+  max-height: 200px;
+  overflow: auto;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+  list-style: none;
+  margin: 6px 0 0 0;
+  padding: 6px 0;
+}
+.drug-suggestions-list li {
+  padding: 8px 12px;
+  cursor: pointer;
+}
+.drug-suggestions-list li.highlighted {
+  background: var(--gray-100);
+}
+
 @media (max-width: 768px) {
   .medicine-entry-table-header {
     display: none;
