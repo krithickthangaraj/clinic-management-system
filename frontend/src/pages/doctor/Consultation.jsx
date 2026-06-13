@@ -11,6 +11,12 @@ import { testService } from '../../services/testService';
 import { visitRelationsService } from '../../services/visitRelationsService';
 import { visitService } from '../../services/visitService';
 import { vitalsService } from '../../services/vitalsService';
+import {
+  buildTemplatePayload,
+  cleanMedicines,
+  cleanTests,
+  cleanVitals,
+} from '../../utils/templatePayload';
 import './Consultation.css';
 
 const FREQUENCY_OPTIONS = [
@@ -348,6 +354,35 @@ export default function Consultation() {
     }
   };
 
+  const getVitalsSnapshotForTemplate = () => {
+    const snapshot = { ...(vitals || {}) };
+    if (editingVital === 'bp') {
+      const systolic = parseInt(vitalTemp.bp_s, 10);
+      const diastolic = parseInt(vitalTemp.bp_d, 10);
+      snapshot.bp_systolic = isNaN(systolic) ? null : systolic;
+      snapshot.bp_diastolic = isNaN(diastolic) ? null : diastolic;
+    } else if (editingVital === 'ht') {
+      const value = parseFloat(vitalTemp.ht);
+      snapshot.height_cm = isNaN(value) ? null : value;
+    } else if (editingVital === 'wt') {
+      const value = parseFloat(vitalTemp.wt);
+      snapshot.weight = isNaN(value) ? null : value;
+    } else if (editingVital === 'sugar') {
+      const value = parseFloat(vitalTemp.sugar);
+      snapshot.sugar = isNaN(value) ? null : value;
+    } else if (editingVital === 'temp') {
+      const value = parseFloat(vitalTemp.temp);
+      snapshot.temperature = isNaN(value) ? null : value;
+    } else if (editingVital === 'pr') {
+      const value = parseInt(vitalTemp.pr, 10);
+      snapshot.pr = isNaN(value) ? null : value;
+    } else if (editingVital === 'spo2') {
+      const value = parseInt(vitalTemp.spo2, 10);
+      snapshot.spo2 = isNaN(value) ? null : value;
+    }
+    return snapshot;
+  };
+
   const handleSaveTemplate = async () => {
     if (!newTemplateName.trim()) {
       alert('Please enter a template name');
@@ -369,22 +404,24 @@ export default function Consultation() {
         .filter(Boolean)
         .join(', ');
 
-      await templateService.create({
+      const payload = buildTemplatePayload({
         name: newTemplateName.trim(),
-        chief_complaints: complaintsForTemplate,
-        diagnosis: diagnosisForTemplate,
-        advice: adviceForTemplate,
-        drugs: medicines,
-        vitals,
-        tests: orderedTests,
-        follow_up_date: followUpDate || null,
-        follow_up_notes: followUpNotes,
+        complaints: [...complaintsForTemplate, complaintInput],
+        diagnosis: [diagnosisForTemplate, diagnosisInput],
+        advice: [adviceForTemplate, adviceInput],
+        medicines,
+        vitals: getVitalsSnapshotForTemplate(),
+        tests: [...orderedTests, { test_name: newTestName, test_type: 'Lab' }],
+        followUpDate,
+        followUpNotes,
       });
+      await templateService.create(payload);
       alert('Template saved successfully!');
       setNewTemplateName('');
       setShowTemplateModal(false);
       loadTemplates();
     } catch (err) {
+      console.error('Failed to save template:', err);
       alert('Failed to save template');
     }
   };
@@ -459,23 +496,22 @@ export default function Consultation() {
               .catch(() => {});
           }
         }
-        const updatedDiagnosis =
-          await visitRelationsService.getDiagnosis(visitId);
-        setVisitDiagnosis(updatedDiagnosis);
       }
+      const updatedDiagnosis = await visitRelationsService.getDiagnosis(visitId);
+      setVisitDiagnosis(updatedDiagnosis);
 
       // Load medicines
       const templateDrugs =
         typeof template.drugs === 'string'
           ? JSON.parse(template.drugs || '[]')
           : template.drugs || [];
-      setMedicines(templateDrugs);
+      setMedicines(cleanMedicines(templateDrugs));
 
       const templateTests =
         typeof template.tests === 'string'
           ? JSON.parse(template.tests || '[]')
           : template.tests || [];
-      setOrderedTests(templateTests);
+      setOrderedTests(cleanTests(templateTests));
 
       if (template.follow_up_date) {
         setFollowUpDate(String(template.follow_up_date).slice(0, 10));
@@ -491,15 +527,16 @@ export default function Consultation() {
           ? JSON.parse(template.vitals || '{}')
           : template.vitals || null;
       if (templateVitals && Object.keys(templateVitals).length > 0) {
+        const cleanedVitals = cleanVitals(templateVitals);
         try {
           const updatedVitals = await vitalsService.updateByVisit(
             visitId,
-            templateVitals
+            cleanedVitals
           );
           setVitals(updatedVitals);
         } catch (err) {
           console.error('Failed to apply template vitals:', err);
-          setVitals((current) => ({ ...(current || {}), ...templateVitals }));
+          setVitals((current) => ({ ...(current || {}), ...cleanedVitals }));
         }
       }
 
@@ -526,6 +563,8 @@ export default function Consultation() {
           }
         }
         setVisitAdvice(adviceIds);
+      } else {
+        setVisitAdvice([]);
       }
 
       alert('Template loaded successfully!');

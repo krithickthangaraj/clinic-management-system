@@ -3,6 +3,12 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import MedicineEntry from '../../components/MedicineEntry';
 import { masterService } from '../../services/masterService';
 import { templateService } from '../../services/templateService';
+import {
+  buildTemplatePayload,
+  cleanMedicines,
+  cleanTests,
+  cleanVitals,
+} from '../../utils/templatePayload';
 import './Consultation.css';
 
 const FREQUENCY_OPTIONS = [
@@ -132,9 +138,12 @@ export default function TemplateEdit() {
         setTemplateComplaints(parseJsonValue(data.chief_complaints, []));
         setTemplateDiagnosis(listFromText(data.diagnosis));
         setTemplateAdvice(listFromText(data.advice));
-        setMedicines(parseJsonValue(data.drugs, []));
-        setVitals({ ...EMPTY_VITALS, ...parseJsonValue(data.vitals, {}) });
-        setOrderedTests(parseJsonValue(data.tests, []));
+        setMedicines(cleanMedicines(parseJsonValue(data.drugs, [])));
+        setVitals({
+          ...EMPTY_VITALS,
+          ...cleanVitals(parseJsonValue(data.vitals, {})),
+        });
+        setOrderedTests(cleanTests(parseJsonValue(data.tests, [])));
         setFollowUpDate(toDateInputValue(data.follow_up_date));
         setFollowUpNotes(data.follow_up_notes || '');
       } else {
@@ -189,6 +198,27 @@ export default function TemplateEdit() {
       }));
     }
     setEditingVital(null);
+  };
+
+  const getVitalsSnapshot = () => {
+    const snapshot = { ...vitals };
+    if (editingVital === 'bp') {
+      snapshot.bp_systolic = numberOrNull(vitalTemp.bp_s);
+      snapshot.bp_diastolic = numberOrNull(vitalTemp.bp_d);
+    } else if (editingVital === 'ht') {
+      snapshot.height_cm = numberOrNull(vitalTemp.ht);
+    } else if (editingVital === 'wt') {
+      snapshot.weight = numberOrNull(vitalTemp.wt);
+    } else if (editingVital === 'sugar') {
+      snapshot.sugar = numberOrNull(vitalTemp.sugar);
+    } else if (editingVital === 'temp') {
+      snapshot.temperature = numberOrNull(vitalTemp.temp);
+    } else if (editingVital === 'pr') {
+      snapshot.pr = numberOrNull(vitalTemp.pr);
+    } else if (editingVital === 'spo2') {
+      snapshot.spo2 = numberOrNull(vitalTemp.spo2);
+    }
+    return snapshot;
   };
 
   const addSelected = (items, setItems, name) => {
@@ -309,17 +339,17 @@ export default function TemplateEdit() {
 
     setSaving(true);
     try {
-      const payload = {
+      const payload = buildTemplatePayload({
         name: templateName.trim(),
-        chief_complaints: templateComplaints,
-        diagnosis: templateDiagnosis.join(', '),
-        advice: templateAdvice.join(', '),
-        drugs: medicines,
-        vitals,
-        tests: orderedTests,
-        follow_up_date: followUpDate || null,
-        follow_up_notes: followUpNotes,
-      };
+        complaints: [...templateComplaints, complaintInput],
+        diagnosis: [...templateDiagnosis, diagnosisInput],
+        advice: [...templateAdvice, adviceInput],
+        medicines,
+        vitals: getVitalsSnapshot(),
+        tests: [...orderedTests, { test_name: newTestName, test_type: 'Lab' }],
+        followUpDate,
+        followUpNotes,
+      });
 
       if (templateId) {
         await templateService.update(templateId, payload);
