@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import MedicineEntry from '../../components/MedicineEntry';
 import PrescriptionView from '../../components/PrescriptionView';
 import { masterService } from '../../services/masterService';
+import { medicineService } from '../../services/medicineService';
 import { patientHistoryService } from '../../services/patientHistoryService';
 import { patientService } from '../../services/patientService';
 import { prescriptionService } from '../../services/prescriptionService';
@@ -71,6 +72,8 @@ export default function Consultation() {
   const [diagnosisMaster, setDiagnosisMaster] = useState([]);
   const [adviceMaster, setAdviceMaster] = useState([]);
   const [labTestsMaster, setLabTestsMaster] = useState([]);
+  const [drugsMaster, setDrugsMaster] = useState([]);
+  const [typesMaster, setTypesMaster] = useState([]);
   const [masterEditing, setMasterEditing] = useState(null);
   const [masterEditValue, setMasterEditValue] = useState('');
   const [followUpDate, setFollowUpDate] = useState('');
@@ -78,6 +81,28 @@ export default function Consultation() {
   const [selectedFollowUpOption, setSelectedFollowUpOption] = useState(null); // 'tomorrow' | '2days' | '3days' | '1week' | '1month' | 'custom' | null
   const [followUpTimeUnit, setFollowUpTimeUnit] = useState('day'); // 'day' | 'week' | 'month'
   const [medicines, setMedicines] = useState([]);
+  const dragIndexRef = useRef(null);
+
+  const handleDragStart = (e, index) => {
+    dragIndexRef.current = index;
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = (e, index) => {
+    e.preventDefault();
+    const dragIndex = dragIndexRef.current;
+    if (dragIndex == null || dragIndex === index) return;
+    const items = Array.from(medicines);
+    const [moved] = items.splice(dragIndex, 1);
+    items.splice(index, 0, moved);
+    setMedicines(items);
+    dragIndexRef.current = null;
+  };
   const [orderedTests, setOrderedTests] = useState([]);
   const [newTestName, setNewTestName] = useState('');
   const [newTestType] = useState('Lab'); // Fixed to Lab only, no dropdown needed
@@ -138,16 +163,21 @@ export default function Consultation() {
 
   const loadMasters = async () => {
     try {
-      const [complaints, diagnosis, advice, labTests] = await Promise.all([
-        masterService.listComplaints().catch(() => []),
-        masterService.listDiagnosis().catch(() => []),
-        masterService.listAdvice().catch(() => []),
-        masterService.listLabTests('', 'Lab').catch(() => []),
-      ]);
+      const [complaints, diagnosis, advice, labTests, drugs, types] =
+        await Promise.all([
+          masterService.listComplaints().catch(() => []),
+          masterService.listDiagnosis().catch(() => []),
+          masterService.listAdvice().catch(() => []),
+          masterService.listLabTests('', 'Lab').catch(() => []),
+          medicineService.searchDrugs('').catch(() => []),
+          medicineService.listTypes().catch(() => []),
+        ]);
       setComplaintsMaster(complaints);
       setDiagnosisMaster(diagnosis);
       setAdviceMaster(advice);
       setLabTestsMaster(labTests);
+      setDrugsMaster(drugs || []);
+      setTypesMaster(types || []);
     } catch (err) {
       console.error('Failed to load masters:', err);
     }
@@ -497,7 +527,8 @@ export default function Consultation() {
           }
         }
       }
-      const updatedDiagnosis = await visitRelationsService.getDiagnosis(visitId);
+      const updatedDiagnosis =
+        await visitRelationsService.getDiagnosis(visitId);
       setVisitDiagnosis(updatedDiagnosis);
 
       // Load medicines
@@ -2111,35 +2142,74 @@ export default function Consultation() {
 
           {/* Medications */}
           <section className="consult-card medications-section">
-            <h3>Medications</h3>
+            <h3>Rx</h3>
             <MedicineEntry
-              onAdd={(m) => setMedicines([...medicines, m])}
+              onAdd={async (m) => {
+                // enrich with type/brand names where possible
+                try {
+                  const copy = { ...m };
+                  copy.type_name =
+                    typesMaster.find((t) => t.id === copy.type_id)?.name ||
+                    null;
+                  if (copy.brand_id) {
+                    const brands = await medicineService.listBrands({
+                      drug_id: copy.drug_id,
+                    });
+                    const b = (brands || []).find(
+                      (x) => x.id === copy.brand_id
+                    );
+                    copy.brand_name = b ? b.name : null;
+                  }
+                  setMedicines((prev) => [...prev, copy]);
+                } catch (e) {
+                  setMedicines((prev) => [...prev, m]);
+                }
+              }}
               frequencyOptions={FREQUENCY_OPTIONS}
               dosageOptions={DOSAGE_OPTIONS}
             />
             {medicines.length > 0 && (
               <div className="medicines-table-container">
-                <table className="modern-med-table">
+                <table className="modern-med-table rx-table compact">
                   <thead>
                     <tr>
-                      <th>#</th>
+                      <th>S.No</th>
                       <th>Drug Name</th>
+                      <th>Type</th>
+                      <th>Brand + Dosage</th>
                       <th>Dosage</th>
                       <th>Frequency</th>
-                      <th>Days</th>
-                      <th>Qty</th>
+                      <th>Total Days</th>
+                      <th>Quantity</th>
                       <th>Instructions</th>
                       <th></th>
                     </tr>
                   </thead>
                   <tbody>
                     {medicines.map((med, i) => (
-                      <tr key={i}>
+                      <tr
+                        key={i}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, i)}
+                        onDragOver={handleDragOver}
+                        onDrop={(e) => handleDrop(e, i)}
+                      >
                         <td>{i + 1}</td>
                         <td className="font-bold">{med.drug_name}</td>
-                        <td>{med.dosage}</td>
+                        <td>
+                          {med.type_name ||
+                            typesMaster.find((t) => t.id === med.type_id)
+                              ?.name ||
+                            '—'}
+                        </td>
+                        <td>
+                          {med.brand_name ||
+                            (med.brand_id ? `#${med.brand_id}` : '—')}
+                          {med.dosage ? ` ${med.dosage}` : ''}
+                        </td>
+                        <td>{med.dosage || '—'}</td>
                         <td>{med.frequency}</td>
-                        <td>{med.number_of_days}</td>
+                        <td>{med.number_of_days || '—'}</td>
                         <td>
                           <span className="qty-pill">{med.quantity}</span>
                         </td>

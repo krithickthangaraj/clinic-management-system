@@ -26,13 +26,31 @@
 }
 
 /* Column Widths */
-.col-drug { flex: 3; position: relative; }
-.col-dosage { flex: 1.5; }
-.col-freq { flex: 1.5; }
-.col-days { width: 70px; }
-.col-qty { width: 50px; text-align: center; }
-.col-instructions { flex: 2; }
-.col-action { width: 40px; display: flex; justify-content: flex-end; }
+.col-drug {
+  flex: 3;
+  position: relative;
+}
+.col-dosage {
+  flex: 1.5;
+}
+.col-freq {
+  flex: 1.5;
+}
+.col-days {
+  width: 70px;
+}
+.col-qty {
+  width: 50px;
+  text-align: center;
+}
+.col-instructions {
+  flex: 2;
+}
+.col-action {
+  width: 40px;
+  display: flex;
+  justify-content: flex-end;
+}
 
 .instructions-input {
   width: 100%;
@@ -43,7 +61,7 @@
   background: var(--gray-50);
 }
 
-.medicine-entry-row input, 
+.medicine-entry-row input,
 .medicine-entry-row select {
   padding: 0.5rem 0.75rem;
   border: 1px solid var(--gray-200);
@@ -52,7 +70,31 @@
   background: var(--gray-50);
 }
 
-.medicine-entry-row input:focus, 
+.grid-drug-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+.drug-input-wrap {
+  flex: 2;
+}
+.type-select {
+  width: 160px;
+}
+.brand-dosage-col {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex: 2;
+}
+.brand-select {
+  min-width: 160px;
+}
+.dosage-select {
+  min-width: 120px;
+}
+
+.medicine-entry-row input:focus,
 .medicine-entry-row select:focus {
   background: white;
   border-color: var(--primary);
@@ -106,13 +148,23 @@
   .medicine-entry-table-header {
     display: none;
   }
-  
+
   .medicine-entry-row {
     flex-wrap: wrap;
     gap: 0.5rem;
   }
-  
-  .col-drug { flex: 100%; }
-  .col-dosage, .col-freq { flex: 1; }
-  .col-days, .col-qty, .col-action { width: auto; flex: 0 0 auto; }
+
+  .col-drug {
+    flex: 100%;
+  }
+  .col-dosage,
+  .col-freq {
+    flex: 1;
+  }
+  .col-days,
+  .col-qty,
+  .col-action {
+    width: auto;
+    flex: 0 0 auto;
+  }
 }

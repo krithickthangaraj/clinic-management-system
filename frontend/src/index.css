@@ -17,11 +17,17 @@
   --gray-800: #1e293b;
   --gray-900: #0f172a;
 
+  --space-xxs: 0.25rem;
+  --space-xs: 0.375rem;
+  --space-sm: 0.5rem;
+  --space-md: 0.75rem;
+  --space-lg: 1rem;
+
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
   --shadow-lg:
     0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-  --radius: 12px;
+  --radius: 10px;
 }
 
 * {
@@ -41,7 +47,7 @@ body {
   -webkit-font-smoothing: antialiased;
   background-color: var(--gray-100);
   color: var(--gray-900);
-  line-height: 1.5;
+  line-height: 1.45;
 }
 
 /* Compact spacing: reduce padding by ~30% */
@@ -49,16 +55,17 @@ body {
   background-color: var(--primary);
   color: white;
   border: none;
-  padding: 0.5rem 1rem;
-  border-radius: var(--radius);
+  padding: var(--space-sm) var(--space-lg);
+  border-radius: calc(var(--radius) - 2px);
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.18s;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
   font-size: 0.9375rem;
+  min-height: 2.4rem;
 }
 
 .btn-primary:hover {
@@ -82,27 +89,36 @@ body {
   border-radius: var(--radius);
   box-shadow: var(--shadow-sm);
   border: 1px solid var(--gray-200);
-  padding: 1rem;
+  padding: var(--space-md);
 }
 
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1.4rem;
+  margin-bottom: var(--space-lg);
 }
 
 .page-header h1 {
-  font-size: 1.5rem;
+  font-size: 1.375rem;
   font-weight: 700;
   color: var(--gray-900);
+}
+
+/* Labels */
+label {
+  display: inline-block;
+  margin-bottom: 0.25rem;
+  color: var(--gray-700);
+  font-weight: 700;
+  font-size: 0.78rem;
 }
 
 input,
 select,
 textarea {
   width: 100%;
-  padding: 0.5rem 0.75rem;
+  padding: var(--space-sm) var(--space-md);
   border: 1px solid var(--gray-300);
   border-radius: 8px;
   font-size: 0.95rem;
@@ -117,6 +133,18 @@ textarea:focus {
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 3px var(--primary-light);
+}
+
+/* Compact form helper - apply to dense lists or cards */
+.compact .card {
+  padding: var(--space-sm);
+}
+
+/* Reduce overall gaps in common grid containers */
+.form-grid,
+.vitals-grid,
+.grid-2 {
+  gap: 0.6rem;
 }
 
 /* Scrollbar styles */

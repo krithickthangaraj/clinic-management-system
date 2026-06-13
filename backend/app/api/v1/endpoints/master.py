@@ -8,6 +8,12 @@ from app.models.enums import UserRole
 from app.models.master import (
     ChiefComplaintMaster, DiagnosisMaster, DoctorAdviceMaster, LabTestMaster
 )
+from app.models.medicine import (
+    MedicineDrug, MedicineType, MedicineBrand, MedicineDosage
+)
+from app.schemas.medicine import (
+    MedicineDrugCreate, MedicineTypeCreate, MedicineBrandCreate, MedicineDosageCreate, MedicineItemResponse
+)
 from app.schemas.master import MasterItemCreate, MasterItemUpdate, MasterItemResponse
 
 router = APIRouter()
@@ -307,3 +313,228 @@ async def delete_lab_test(
 ):
     """Soft-delete a lab test from master."""
     deactivate_master_item(db, LabTestMaster, item_id)
+
+
+# Medicine Master: Drugs
+@router.get("/meds/drugs", response_model=List[MedicineItemResponse])
+async def list_medicine_drugs(
+    search: str = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    query = db.query(MedicineDrug).filter(MedicineDrug.is_active == True)
+    if search:
+        query = query.filter(MedicineDrug.name.ilike(f"%{search}%"))
+    items = query.order_by(MedicineDrug.name).limit(200).all()
+    return [MedicineItemResponse.model_validate(i) for i in items]
+
+
+@router.post("/meds/drugs", response_model=MedicineItemResponse, status_code=status.HTTP_201_CREATED)
+async def create_medicine_drug(
+    data: MedicineDrugCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role([UserRole.DOCTOR, UserRole.ADMIN]))
+):
+    if not data.name or not data.name.strip():
+        raise HTTPException(status_code=400, detail="Drug name is required")
+    existing = db.query(MedicineDrug).filter(MedicineDrug.name.ilike(data.name.strip())).first()
+    if existing:
+        return MedicineItemResponse.model_validate(existing)
+    item = MedicineDrug(name=data.name.strip())
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return MedicineItemResponse.model_validate(item)
+
+
+# Medicine Types
+@router.get("/meds/types", response_model=List[MedicineItemResponse])
+async def list_medicine_types(
+    search: str = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    query = db.query(MedicineType).filter(MedicineType.is_active == True)
+    if search:
+        query = query.filter(MedicineType.name.ilike(f"%{search}%"))
+    items = query.order_by(MedicineType.name).limit(100).all()
+    return [MedicineItemResponse.model_validate(i) for i in items]
+
+
+@router.post("/meds/types", response_model=MedicineItemResponse, status_code=status.HTTP_201_CREATED)
+async def create_medicine_type(
+    data: MedicineTypeCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role([UserRole.DOCTOR, UserRole.ADMIN]))
+):
+    if not data.name or not data.name.strip():
+        raise HTTPException(status_code=400, detail="Type name is required")
+    existing = db.query(MedicineType).filter(MedicineType.name.ilike(data.name.strip())).first()
+    if existing:
+        return MedicineItemResponse.model_validate(existing)
+    item = MedicineType(name=data.name.strip())
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return MedicineItemResponse.model_validate(item)
+
+
+# Brands (filtered by drug and/or type)
+@router.get("/meds/brands", response_model=List[MedicineItemResponse])
+async def list_medicine_brands(
+    drug_id: int = None,
+    type_id: int = None,
+    search: str = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    query = db.query(MedicineBrand).filter(MedicineBrand.is_active == True)
+    if drug_id:
+        query = query.filter(MedicineBrand.drug_id == drug_id)
+    if type_id:
+        query = query.filter(MedicineBrand.type_id == type_id)
+    if search:
+        query = query.filter(MedicineBrand.name.ilike(f"%{search}%"))
+    items = query.order_by(MedicineBrand.name).limit(200).all()
+    return [MedicineItemResponse.model_validate(i) for i in items]
+
+
+@router.post("/meds/brands", response_model=MedicineItemResponse, status_code=status.HTTP_201_CREATED)
+async def create_medicine_brand(
+    data: MedicineBrandCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role([UserRole.DOCTOR, UserRole.ADMIN]))
+):
+    if not data.name or not data.name.strip():
+        raise HTTPException(status_code=400, detail="Brand name is required")
+    item = MedicineBrand(name=data.name.strip(), drug_id=data.drug_id, type_id=data.type_id)
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return MedicineItemResponse.model_validate(item)
+
+
+# Dosages (filtered by brand)
+@router.get("/meds/dosages", response_model=List[MedicineItemResponse])
+async def list_medicine_dosages(
+    brand_id: int = None,
+    search: str = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    query = db.query(MedicineDosage).filter(MedicineDosage.is_active == True)
+    if brand_id:
+        query = query.filter(MedicineDosage.brand_id == brand_id)
+    if search:
+        query = query.filter(MedicineDosage.label.ilike(f"%{search}%"))
+    items = query.order_by(MedicineDosage.label).limit(200).all()
+    return [MedicineItemResponse.model_validate(i) for i in items]
+
+
+@router.post("/meds/dosages", response_model=MedicineItemResponse, status_code=status.HTTP_201_CREATED)
+async def create_medicine_dosage(
+    data: MedicineDosageCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role([UserRole.DOCTOR, UserRole.ADMIN]))
+):
+    if not data.label or not data.label.strip():
+        raise HTTPException(status_code=400, detail="Dosage label is required")
+    item = MedicineDosage(brand_id=data.brand_id, label=data.label.strip(), default_instruction=data.default_instruction)
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return MedicineItemResponse.model_validate(item)
+
+
+# Update / disable endpoints for medicine master
+@router.patch("/meds/drugs/{item_id}", response_model=MedicineItemResponse)
+async def update_medicine_drug(item_id: int, data: MedicineDrugCreate, db: Session = Depends(get_db), current_user: User = Depends(require_role([UserRole.DOCTOR, UserRole.ADMIN]))):
+    item = db.query(MedicineDrug).filter(MedicineDrug.id == item_id, MedicineDrug.is_active == True).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Drug not found")
+    if not data.name or not data.name.strip():
+        raise HTTPException(status_code=400, detail="Name is required")
+    item.name = data.name.strip()
+    db.commit()
+    db.refresh(item)
+    return MedicineItemResponse.model_validate(item)
+
+
+@router.delete("/meds/drugs/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_medicine_drug(item_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_role([UserRole.DOCTOR, UserRole.ADMIN]))):
+    item = db.query(MedicineDrug).filter(MedicineDrug.id == item_id, MedicineDrug.is_active == True).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Drug not found")
+    item.is_active = False
+    db.commit()
+
+
+@router.patch("/meds/types/{item_id}", response_model=MedicineItemResponse)
+async def update_medicine_type(item_id: int, data: MedicineTypeCreate, db: Session = Depends(get_db), current_user: User = Depends(require_role([UserRole.DOCTOR, UserRole.ADMIN]))):
+    item = db.query(MedicineType).filter(MedicineType.id == item_id, MedicineType.is_active == True).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Type not found")
+    if not data.name or not data.name.strip():
+        raise HTTPException(status_code=400, detail="Name is required")
+    item.name = data.name.strip()
+    db.commit()
+    db.refresh(item)
+    return MedicineItemResponse.model_validate(item)
+
+
+@router.delete("/meds/types/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_medicine_type(item_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_role([UserRole.DOCTOR, UserRole.ADMIN]))):
+    item = db.query(MedicineType).filter(MedicineType.id == item_id, MedicineType.is_active == True).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Type not found")
+    item.is_active = False
+    db.commit()
+
+
+@router.patch("/meds/brands/{item_id}", response_model=MedicineItemResponse)
+async def update_medicine_brand(item_id: int, data: MedicineBrandCreate, db: Session = Depends(get_db), current_user: User = Depends(require_role([UserRole.DOCTOR, UserRole.ADMIN]))):
+    item = db.query(MedicineBrand).filter(MedicineBrand.id == item_id, MedicineBrand.is_active == True).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Brand not found")
+    if not data.name or not data.name.strip():
+        raise HTTPException(status_code=400, detail="Name is required")
+    item.name = data.name.strip()
+    item.drug_id = data.drug_id
+    item.type_id = data.type_id
+    db.commit()
+    db.refresh(item)
+    return MedicineItemResponse.model_validate(item)
+
+
+@router.delete("/meds/brands/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_medicine_brand(item_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_role([UserRole.DOCTOR, UserRole.ADMIN]))):
+    item = db.query(MedicineBrand).filter(MedicineBrand.id == item_id, MedicineBrand.is_active == True).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Brand not found")
+    item.is_active = False
+    db.commit()
+
+
+@router.patch("/meds/dosages/{item_id}", response_model=MedicineItemResponse)
+async def update_medicine_dosage(item_id: int, data: MedicineDosageCreate, db: Session = Depends(get_db), current_user: User = Depends(require_role([UserRole.DOCTOR, UserRole.ADMIN]))):
+    item = db.query(MedicineDosage).filter(MedicineDosage.id == item_id, MedicineDosage.is_active == True).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Dosage not found")
+    if not data.label or not data.label.strip():
+        raise HTTPException(status_code=400, detail="Label is required")
+    item.label = data.label.strip()
+    item.brand_id = data.brand_id
+    item.default_instruction = data.default_instruction
+    db.commit()
+    db.refresh(item)
+    return MedicineItemResponse.model_validate(item)
+
+
+@router.delete("/meds/dosages/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_medicine_dosage(item_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_role([UserRole.DOCTOR, UserRole.ADMIN]))):
+    item = db.query(MedicineDosage).filter(MedicineDosage.id == item_id, MedicineDosage.is_active == True).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Dosage not found")
+    item.is_active = False
+    db.commit()
+

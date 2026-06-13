@@ -1,6 +1,6 @@
+import { format } from 'date-fns';
 import { useRef } from 'react';
 import { useReactToPrint } from 'react-to-print';
-import { format } from 'date-fns';
 import { prescriptionService } from '../services/prescriptionService';
 import './PrescriptionView.css';
 
@@ -108,7 +108,7 @@ export default function PrescriptionView({
 
         {medicines.length > 0 && (
           <section className="print-section">
-            <h3>Medications</h3>
+            <h3>Rx</h3>
             <table className="medicines-table">
               <thead>
                 <tr>

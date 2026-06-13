@@ -8,6 +8,9 @@ from app.models.template import Template
 from app.models.master import (
     ChiefComplaintMaster, DiagnosisMaster, DoctorAdviceMaster, LabTestMaster
 )
+from app.models.medicine import (
+    MedicineDrug, MedicineBrand, MedicineType, MedicineDosage
+)
 from app.models.patient_history import (
     PatientAllergyHistory, PatientFamilyHistory, PatientSurgicalHistory, PatientPastHistory
 )
@@ -33,4 +36,8 @@ __all__ = [
     "VisitComplaint",
     "VisitDiagnosis",
     "VisitPayment",
+    "MedicineDrug",
+    "MedicineBrand",
+    "MedicineType",
+    "MedicineDosage",
 ]
