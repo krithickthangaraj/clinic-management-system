@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
+import { CLINICAL_TEMPLATES } from '../../hooks/usePrescriptionForm';
 
 const FREQUENCY_OPTIONS = [
   'TDS (1-1-1)',
@@ -37,8 +38,11 @@ const INSTRUCTION_OPTIONS = [
 export default function RXMedicationTable({
   medicines = [],
   onAddDrug = () => {},
+  onDuplicateDrug = () => {},
+  onMoveDrug = () => {},
   onRemoveDrug = () => {},
   onUpdateDrug = () => {},
+  onLoadTemplate = () => {},
 }) {
   const [masterMedicines, setMasterMedicines] = useState([]);
   const [activeSearchIndex, setActiveSearchIndex] = useState(null);
@@ -53,9 +57,7 @@ export default function RXMedicationTable({
           setMasterMedicines(res.data);
         }
       })
-      .catch(() => {
-        // Fallback gracefully to manual typing
-      });
+      .catch(() => {});
 
     return () => {
       isMounted = false;
@@ -101,82 +103,145 @@ export default function RXMedicationTable({
   };
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200/90 shadow-xs overflow-hidden">
-      {/* 1. Header Bar */}
-      <div className="px-4 py-3 bg-slate-50/80 border-b border-slate-200 flex items-center justify-between">
+    <section
+      className="bg-white rounded-xl border border-slate-200/80 shadow-xs p-5 space-y-4 mb-6"
+      data-testid="rx-medication-section"
+    >
+      {/* 1. Header Toolbar (Standardized h-10 Controls) */}
+      <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
         <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-teal-50 border border-teal-200 text-teal-800 font-serif font-bold text-sm flex items-center justify-center shadow-2xs">
+          <div className="w-8 h-8 rounded-lg bg-teal-50 border border-teal-200/70 text-teal-800 font-serif font-bold text-base flex items-center justify-center shadow-2xs">
             ℞
           </div>
           <div>
-            <h3 className="text-sm font-bold text-slate-900 tracking-tight leading-none">
-              Medication &amp; Prescriptions
+            <h3 className="text-sm font-bold text-slate-900 tracking-tight leading-tight">
+              Prescription Medication
             </h3>
-            <span className="text-[11px] font-medium text-slate-500">
-              {medicines.length} medications listed
+            <span className="text-[11px] font-medium text-slate-400" data-testid="drugs-count-label">
+              {medicines.length} medications listed &bull; Auto-Quantity active
             </span>
           </div>
         </div>
 
-        <button
-          type="button"
-          className="h-8.5 px-3.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
-          onClick={() => onAddDrug()}
-          data-testid="btn-add-drug"
-        >
-          <svg
-            className="w-3.5 h-3.5"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+        {/* Action Controls: 1-Click Templates + Add Drug */}
+        <div className="flex items-center gap-2.5">
+          {/* Template Selector */}
+          <div className="flex items-center gap-1.5">
+            <label htmlFor="template-select" className="text-xs font-semibold text-slate-500 hidden sm:inline">
+              Template:
+            </label>
+            <select
+              id="template-select"
+              className="h-10 px-3 bg-slate-50 border border-slate-200/80 rounded-lg text-xs font-semibold text-slate-700 shadow-2xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 cursor-pointer transition-all"
+              defaultValue=""
+              onChange={(e) => {
+                if (e.target.value) {
+                  onLoadTemplate(e.target.value);
+                  e.target.value = '';
+                }
+              }}
+              data-testid="select-prescription-template"
+            >
+              <option value="" disabled>
+                ⚡ 1-Click Template...
+              </option>
+              {Object.entries(CLINICAL_TEMPLATES).map(([key, t]) => (
+                <option key={key} value={key}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Add Drug Button (Standardized h-10) */}
+          <button
+            type="button"
+            className="h-10 px-4 bg-teal-700 hover:bg-teal-800 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer shrink-0"
+            onClick={() => onAddDrug()}
+            data-testid="btn-add-drug"
+            title="Add Drug (Alt + N)"
           >
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-          <span>Add Drug</span>
-        </button>
+            <svg
+              className="w-4 h-4"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            <span>Add Medicine</span>
+          </button>
+        </div>
       </div>
 
-      {/* 2. Spreadsheet Table */}
-      <div className="overflow-x-auto">
+      {/* 2. Linear / Notion Style Data Grid Table */}
+      <div className="overflow-x-auto rounded-lg border border-slate-200/60">
         <table
-          className="w-full text-left border-collapse"
+          className="w-full border-collapse"
           data-testid="rx-medication-table"
         >
           <thead>
-            <tr className="bg-slate-50/90 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-              <th className="w-12 py-2.5 px-3 text-center">#</th>
-              <th className="w-44 py-2.5 px-2">Brand Name</th>
-              <th className="min-w-[220px] py-2.5 px-2">Drug / Generic Name *</th>
-              <th className="w-28 py-2.5 px-2">Dosage</th>
-              <th className="w-36 py-2.5 px-2">Frequency</th>
-              <th className="w-20 py-2.5 px-2 text-center">Days</th>
-              <th className="w-40 py-2.5 px-2">Instructions</th>
-              <th className="w-20 py-2.5 px-2 text-center">Qty</th>
-              <th className="w-12 py-2.5 px-2 text-center">Del</th>
+            <tr className="bg-slate-50/70 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              <th className="w-12 py-3 px-2 text-center">#</th>
+              <th className="w-36 py-3 px-2 text-left">Brand</th>
+              <th className="min-w-[200px] py-3 px-2 text-left">Drug / Generic Name *</th>
+              <th className="w-28 py-3 px-2 text-left">Dosage</th>
+              <th className="w-36 py-3 px-2 text-left">Frequency</th>
+              <th className="w-18 py-3 px-2 text-center">Days</th>
+              <th className="w-36 py-3 px-2 text-left">Instructions</th>
+              <th className="w-20 py-3 px-2 text-center">Qty</th>
+              <th className="w-24 py-3 px-2 text-center">Actions</th>
             </tr>
           </thead>
 
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-slate-100 bg-white">
             {medicines.map((row, idx) => (
               <tr
                 key={idx}
-                className="hover:bg-slate-50/70 transition-colors"
+                className="hover:bg-slate-50/60 transition-colors group"
                 data-testid={`rx-row-${idx}`}
               >
-                {/* 1. S.No */}
-                <td className="py-2 px-3 text-center font-mono font-bold text-xs text-slate-400">
-                  {row.s_no || idx + 1}
+                {/* 1. S.No & Reorder Controls */}
+                <td className="py-2.5 px-2 text-center">
+                  <div className="flex items-center justify-center gap-1">
+                    <span className="font-mono font-bold text-xs text-slate-400">
+                      {row.s_no || idx + 1}
+                    </span>
+                    {/* Up / Down Reorder */}
+                    <div className="flex flex-col opacity-70 group-hover:opacity-100 transition-opacity">
+                      <button
+                        type="button"
+                        className="text-[10px] text-slate-400 hover:text-teal-700 leading-none disabled:opacity-20 cursor-pointer p-0.5"
+                        disabled={idx === 0}
+                        onClick={() => onMoveDrug(idx, idx - 1)}
+                        title="Move Up"
+                        data-testid={`btn-move-up-${idx}`}
+                      >
+                        ▲
+                      </button>
+                      <button
+                        type="button"
+                        className="text-[10px] text-slate-400 hover:text-teal-700 leading-none disabled:opacity-20 cursor-pointer p-0.5"
+                        disabled={idx === medicines.length - 1}
+                        onClick={() => onMoveDrug(idx, idx + 1)}
+                        title="Move Down"
+                        data-testid={`btn-move-down-${idx}`}
+                      >
+                        ▼
+                      </button>
+                    </div>
+                  </div>
                 </td>
 
                 {/* 2. Brand Name */}
-                <td className="py-2 px-2">
+                <td className="py-2.5 px-2 text-left">
                   <input
                     type="text"
-                    className="w-full h-8.5 px-2.5 bg-white border border-slate-300 rounded-md text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 shadow-2xs font-medium"
+                    className="w-full h-9 px-2.5 bg-slate-50/70 hover:bg-slate-50 border border-slate-200/70 hover:border-slate-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 rounded-md text-xs text-slate-900 placeholder-slate-400 shadow-2xs font-medium transition-all"
                     placeholder="e.g. Dolo 650"
                     value={row.brand_name || ''}
                     onChange={(e) => onUpdateDrug(idx, 'brand_name', e.target.value)}
@@ -184,11 +249,11 @@ export default function RXMedicationTable({
                   />
                 </td>
 
-                {/* 3. Drug / Generic Name with Auto-Suggest */}
-                <td className="py-2 px-2 relative">
+                {/* 3. Drug / Generic Name with Autocomplete */}
+                <td className="py-2.5 px-2 text-left relative">
                   <input
                     type="text"
-                    className="w-full h-8.5 px-2.5 bg-white border border-slate-300 rounded-md text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 shadow-2xs font-semibold"
+                    className="w-full h-9 px-2.5 bg-slate-50/70 hover:bg-slate-50 border border-slate-200/70 hover:border-slate-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 rounded-md text-xs text-slate-900 placeholder-slate-400 shadow-2xs font-semibold transition-all"
                     placeholder="e.g. Paracetamol 650mg"
                     value={row.drug_name || ''}
                     onChange={(e) => handleDrugNameChange(idx, e.target.value)}
@@ -203,12 +268,16 @@ export default function RXMedicationTable({
 
                   {/* Auto-suggest dropdown */}
                   {activeSearchIndex === idx && searchResults.length > 0 && (
-                    <div className="absolute top-full left-2 right-2 bg-white border border-slate-200 rounded-lg shadow-xl z-50 max-h-48 overflow-y-auto mt-1 divide-y divide-slate-100">
+                    <div
+                      className="absolute top-full left-2 right-2 bg-white border border-slate-200 rounded-lg shadow-xl z-50 max-h-48 overflow-y-auto mt-1 divide-y divide-slate-100"
+                      data-testid={`autocomplete-dropdown-${idx}`}
+                    >
                       {searchResults.map((m) => (
                         <div
                           key={m.id}
                           className="px-3 py-2 hover:bg-teal-50 cursor-pointer flex items-center gap-2 text-xs transition-colors"
                           onClick={() => handleSelectMasterDrug(idx, m)}
+                          data-testid={`autocomplete-item-${m.id}`}
                         >
                           <strong className="font-bold text-slate-900">{m.name}</strong>
                           {m.brand_name && (
@@ -226,10 +295,10 @@ export default function RXMedicationTable({
                 </td>
 
                 {/* 4. Dosage */}
-                <td className="py-2 px-2">
+                <td className="py-2.5 px-2 text-left">
                   <input
                     type="text"
-                    className="w-full h-8.5 px-2 text-center bg-white border border-slate-300 rounded-md text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 shadow-2xs"
+                    className="w-full h-9 px-2 text-center bg-slate-50/70 hover:bg-slate-50 border border-slate-200/70 hover:border-slate-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 rounded-md text-xs text-slate-900 placeholder-slate-400 shadow-2xs transition-all"
                     placeholder="1 Tab"
                     list={`dosage-list-${idx}`}
                     value={row.dosage || ''}
@@ -244,9 +313,9 @@ export default function RXMedicationTable({
                 </td>
 
                 {/* 5. Frequency */}
-                <td className="py-2 px-2">
+                <td className="py-2.5 px-2 text-left">
                   <select
-                    className="w-full h-8.5 px-2 bg-white border border-slate-300 rounded-md text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 shadow-2xs cursor-pointer font-medium"
+                    className="w-full h-9 px-2 bg-slate-50/70 hover:bg-slate-50 border border-slate-200/70 hover:border-slate-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 rounded-md text-xs text-slate-900 shadow-2xs cursor-pointer font-medium transition-all"
                     value={row.frequency || 'TDS (1-1-1)'}
                     onChange={(e) => onUpdateDrug(idx, 'frequency', e.target.value)}
                     data-testid={`select-freq-${idx}`}
@@ -260,11 +329,11 @@ export default function RXMedicationTable({
                 </td>
 
                 {/* 6. Number of Days */}
-                <td className="py-2 px-2">
+                <td className="py-2.5 px-2 text-center">
                   <input
                     type="number"
                     min="1"
-                    className="w-full h-8.5 px-2 text-center bg-white border border-slate-300 rounded-md text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 shadow-2xs"
+                    className="w-full h-9 px-1 text-center bg-slate-50/70 hover:bg-slate-50 border border-slate-200/70 hover:border-slate-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 rounded-md text-xs font-mono font-bold text-slate-900 shadow-2xs transition-all"
                     value={row.days !== undefined ? row.days : 5}
                     onChange={(e) =>
                       onUpdateDrug(idx, 'days', parseInt(e.target.value, 10) || 1)
@@ -274,10 +343,10 @@ export default function RXMedicationTable({
                 </td>
 
                 {/* 7. Instructions */}
-                <td className="py-2 px-2">
+                <td className="py-2.5 px-2 text-left">
                   <input
                     type="text"
-                    className="w-full h-8.5 px-2.5 bg-white border border-slate-300 rounded-md text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 shadow-2xs"
+                    className="w-full h-9 px-2.5 bg-slate-50/70 hover:bg-slate-50 border border-slate-200/70 hover:border-slate-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 rounded-md text-xs text-slate-900 placeholder-slate-400 shadow-2xs transition-all"
                     placeholder="After food"
                     list={`inst-list-${idx}`}
                     value={row.instructions || ''}
@@ -292,12 +361,12 @@ export default function RXMedicationTable({
                 </td>
 
                 {/* 8. Quantity (Auto-Calculated) */}
-                <td className="py-2 px-2">
+                <td className="py-2.5 px-2 text-center">
                   <input
                     type="number"
                     min="1"
-                    className="w-full h-8.5 px-2 text-center bg-teal-50/70 border border-teal-300 rounded-md text-xs font-mono font-bold text-teal-900 focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-2xs"
-                    title="Auto-calculated quantity (editable)"
+                    className="w-full h-9 px-1 text-center bg-teal-50/80 border border-teal-200 rounded-md text-xs font-mono font-bold text-teal-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 shadow-2xs transition-all"
+                    title="Auto-calculated quantity"
                     value={row.quantity !== undefined ? row.quantity : 15}
                     onChange={(e) =>
                       onUpdateDrug(
@@ -310,34 +379,57 @@ export default function RXMedicationTable({
                   />
                 </td>
 
-                {/* 9. Delete Action */}
-                <td className="py-2 px-2 text-center">
-                  <button
-                    type="button"
-                    className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md mx-auto transition-colors cursor-pointer"
-                    onClick={() => onRemoveDrug(idx)}
-                    title="Delete medication row"
-                    data-testid={`btn-remove-${idx}`}
-                  >
-                    <svg
-                      className="w-4 h-4"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
+                {/* 9. Actions: Duplicate & Delete */}
+                <td className="py-2.5 px-2 text-center">
+                  <div className="flex items-center justify-center gap-1.5">
+                    <button
+                      type="button"
+                      className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-teal-700 hover:bg-teal-50 rounded transition-colors cursor-pointer"
+                      onClick={() => onDuplicateDrug(idx)}
+                      title="Duplicate Row"
+                      data-testid={`btn-duplicate-${idx}`}
                     >
-                      <polyline points="3 6 5 6 21 6" />
-                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                    </svg>
-                  </button>
+                      <svg
+                        className="w-4 h-4"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                      </svg>
+                    </button>
+
+                    <button
+                      type="button"
+                      className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-rose-50 rounded transition-colors cursor-pointer"
+                      onClick={() => onRemoveDrug(idx)}
+                      title="Delete medication row"
+                      data-testid={`btn-remove-${idx}`}
+                    >
+                      <svg
+                        className="w-4 h-4"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <polyline points="3 6 5 6 21 6" />
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                      </svg>
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-    </div>
+    </section>
   );
 }
