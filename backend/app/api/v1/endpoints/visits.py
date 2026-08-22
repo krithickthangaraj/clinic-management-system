@@ -120,7 +120,11 @@ async def get_doctor_queue(
     visits = db.query(Visit).options(
         joinedload(Visit.patient)
     ).filter(
-        Visit.status == VisitStatus.VITALS_DONE.value
+        Visit.status.in_([
+            VisitStatus.REGISTERED.value,
+            VisitStatus.VITALS_DONE.value,
+            VisitStatus.IN_CONSULTATION.value,
+        ])
     ).order_by(Visit.created_at.asc()).all()
 
     result = []

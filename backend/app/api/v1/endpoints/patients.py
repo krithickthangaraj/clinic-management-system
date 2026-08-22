@@ -94,7 +94,7 @@ async def get_patient_history(
 async def register_patient(
     payload: PatientRegistrationPayload,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role([UserRole.RECEPTION, UserRole.ADMIN])),
+    current_user: User = Depends(require_role([UserRole.RECEPTION, UserRole.ADMIN, UserRole.DOCTOR])),
 ):
     """
     Register a new patient, create visit, and record vitals atomically.

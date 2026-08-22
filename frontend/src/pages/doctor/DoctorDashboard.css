@@ -58,13 +58,14 @@
   align-items: center;
   gap: 1rem;
   padding: 0.25rem 0 0.5rem 0;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .header-title-zone {
   display: flex;
   align-items: center;
   gap: 0.85rem;
+  flex-shrink: 0;
 }
 
 .consultation-desk-title {
@@ -74,6 +75,7 @@
   letter-spacing: -0.02em;
   margin: 0;
   line-height: 1.2;
+  white-space: nowrap;
 }
 
 /* Standardized Compact Calendar Date Badge */
@@ -86,6 +88,7 @@
   align-items: center;
   gap: 0.4rem;
   box-shadow: var(--doc-shadow-xs);
+  white-space: nowrap;
 }
 
 /* Fixed Compact Calendar Icon */
@@ -100,14 +103,18 @@
   font-size: 0.76rem;
   font-weight: 600;
   color: var(--doc-text-muted);
+  white-space: nowrap;
 }
 
-/* Right Controls Zone */
+/* Right Controls Zone: Perfectly Aligned Side-by-Side (Row) */
 .header-controls-zone {
   display: flex;
+  flex-direction: row;
   align-items: center;
+  justify-content: flex-end;
   gap: 0.65rem;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
 }
 
 /* Segmented Category Control */
@@ -170,12 +177,15 @@
   color: var(--doc-text-main);
   font-size: 0.78rem;
   font-weight: 600;
-  padding: 0.38rem 0.75rem;
+  height: 32px;
+  padding: 0 0.75rem;
   border-radius: var(--doc-radius-sm);
   outline: none;
   cursor: pointer;
   box-shadow: var(--doc-shadow-xs);
   transition: border-color 0.15s ease;
+  white-space: nowrap;
+  line-height: 30px;
 }
 
 .consultant-select-input:focus {
@@ -190,14 +200,18 @@
   color: var(--doc-primary);
   font-size: 0.78rem;
   font-weight: 600;
-  padding: 0.38rem 0.75rem;
+  height: 32px;
+  padding: 0 0.75rem;
   border-radius: var(--doc-radius-sm);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.35rem;
   box-shadow: var(--doc-shadow-xs);
   transition: all 0.15s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .btn-sync-action:hover {

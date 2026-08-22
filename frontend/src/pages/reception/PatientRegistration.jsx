@@ -283,7 +283,6 @@ export default function PatientRegistration() {
           patientName: updatedPatient.full_name || updatedPatient.name,
           visitNumber: `Visit #${vid}`,
         });
-      } else {
         // New Patient Registration
         result = await patientService.register(payload);
 
@@ -293,6 +292,21 @@ export default function PatientRegistration() {
           patientName: result.patient.full_name || result.patient.name,
           visitNumber: result.visit.visit_number,
         });
+
+        // Instantly prepend new visit to sidebar queue state
+        if (result?.visit && result?.patient) {
+          const newVisitItem = {
+            id: result.visit.id,
+            patient_id: result.patient.id,
+            patient_name: result.patient.full_name || result.patient.name,
+            patient_phone: result.patient.phone_number || result.patient.phone,
+            patient_gender: result.patient.gender,
+            visit_number: result.visit.visit_number,
+            status: result.visit.status || 'vitals_done',
+            created_at: result.visit.created_at || new Date().toISOString(),
+          };
+          setTodayVisits((prev) => [newVisitItem, ...prev.filter((v) => v.id !== newVisitItem.id)]);
+        }
 
         // Clean reset for next registration
         setDemographics(INITIAL_DEMOGRAPHICS);

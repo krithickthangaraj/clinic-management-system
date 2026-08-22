@@ -70,8 +70,8 @@ export default function PatientSearch({
   };
 
   const PENDING = ['registered'];
-  const IN_QUEUE = ['vitals_done'];
-  const ALREADY_SEEN = ['in_consultation', 'consulted', 'completed'];
+  const IN_QUEUE = ['registered', 'vitals_done', 'in_consultation'];
+  const ALREADY_SEEN = ['consulted', 'completed'];
 
   const countInQueue = todayVisits.filter((v) => IN_QUEUE.includes(v.status)).length;
   const countPending = todayVisits.filter((v) => PENDING.includes(v.status)).length;
