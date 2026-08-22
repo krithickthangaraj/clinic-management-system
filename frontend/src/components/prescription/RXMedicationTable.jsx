@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import api from '../../services/api';
+import { useEffect, useState } from 'react';
 import { CLINICAL_TEMPLATES } from '../../hooks/usePrescriptionForm';
+import api from '../../services/api';
+import SaveTemplateModal from './SaveTemplateModal';
 
 const FREQUENCY_OPTIONS = [
   'TDS (1-1-1)',
@@ -47,6 +48,10 @@ export default function RXMedicationTable({
   const [masterMedicines, setMasterMedicines] = useState([]);
   const [activeSearchIndex, setActiveSearchIndex] = useState(null);
   const [searchResults, setSearchResults] = useState([]);
+  const [isSaveTemplateModalOpen, setIsSaveTemplateModalOpen] = useState(false);
+  const [customTemplates, setCustomTemplates] = useState({});
+  const [draggedIndex, setDraggedIndex] = useState(null);
+  const [dragOverIndex, setDragOverIndex] = useState(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -58,6 +63,14 @@ export default function RXMedicationTable({
         }
       })
       .catch(() => {});
+
+    // Load custom saved templates
+    try {
+      const stored = localStorage.getItem('clinic_custom_templates_v1');
+      if (stored) {
+        setCustomTemplates(JSON.parse(stored));
+      }
+    } catch {}
 
     return () => {
       isMounted = false;
@@ -102,12 +115,57 @@ export default function RXMedicationTable({
     setActiveSearchIndex(null);
   };
 
+  const handleSaveNewTemplate = (name, drugs) => {
+    const key = `custom_${Date.now()}`;
+    const validDrugs = drugs.filter((d) => d.drug_name && d.drug_name.trim());
+    const newT = {
+      name,
+      medicines: validDrugs,
+    };
+    const updated = { ...customTemplates, [key]: newT };
+    setCustomTemplates(updated);
+    try {
+      localStorage.setItem('clinic_custom_templates_v1', JSON.stringify(updated));
+    } catch {}
+  };
+
+  // Drag and Drop Event Handlers
+  const handleDragStart = (e, index) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', index);
+  };
+
+  const handleDragOver = (e, index) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverIndex !== index) {
+      setDragOverIndex(index);
+    }
+  };
+
+  const handleDrop = (e, targetIndex) => {
+    e.preventDefault();
+    if (draggedIndex !== null && draggedIndex !== targetIndex) {
+      onMoveDrug(draggedIndex, targetIndex);
+    }
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
+  const allTemplates = { ...CLINICAL_TEMPLATES, ...customTemplates };
+
   return (
     <section
       className="bg-white rounded-xl border border-slate-200/80 shadow-xs p-5 space-y-4 mb-6"
       data-testid="rx-medication-section"
     >
-      {/* 1. Header Toolbar (Standardized h-10 Controls) */}
+      {/* 1. Header Toolbar with Top-Right Template Engine */}
       <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg bg-teal-50 border border-teal-200/70 text-teal-800 font-serif font-bold text-base flex items-center justify-center shadow-2xs">
@@ -115,37 +173,54 @@ export default function RXMedicationTable({
           </div>
           <div>
             <h3 className="text-sm font-bold text-slate-900 tracking-tight leading-tight">
-              Prescription Medication
+              Prescription Medication &amp; Regimen
             </h3>
             <span className="text-[11px] font-medium text-slate-400" data-testid="drugs-count-label">
-              {medicines.length} medications listed &bull; Auto-Quantity active
+              {medicines.length} medications listed &bull; Drag handle to reorder
             </span>
           </div>
         </div>
 
-        {/* Action Controls: 1-Click Templates + Add Drug */}
-        <div className="flex items-center gap-2.5">
+        {/* Top-Right Action Controls: Templates, Save Template, Add Drug */}
+        <div className="flex items-center gap-2 flex-wrap">
           {/* Template Selector */}
           <div className="flex items-center gap-1.5">
-            <label htmlFor="template-select" className="text-xs font-semibold text-slate-500 hidden sm:inline">
-              Template:
-            </label>
             <select
               id="template-select"
               className="h-10 px-3 bg-slate-50 border border-slate-200/80 rounded-lg text-xs font-semibold text-slate-700 shadow-2xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 cursor-pointer transition-all"
               defaultValue=""
               onChange={(e) => {
                 if (e.target.value) {
-                  onLoadTemplate(e.target.value);
+                  const val = e.target.value;
+                  if (customTemplates[val]) {
+                    // Load custom template
+                    const t = customTemplates[val];
+                    if (t.medicines) {
+                      t.medicines.forEach((m, idx) => {
+                        if (idx === 0) {
+                          onUpdateDrug(0, 'drug_name', m.drug_name);
+                          onUpdateDrug(0, 'brand_name', m.brand_name);
+                          onUpdateDrug(0, 'dosage', m.dosage);
+                          onUpdateDrug(0, 'frequency', m.frequency);
+                          onUpdateDrug(0, 'days', m.days);
+                          onUpdateDrug(0, 'instructions', m.instructions);
+                        } else {
+                          onAddDrug(m);
+                        }
+                      });
+                    }
+                  } else {
+                    onLoadTemplate(val);
+                  }
                   e.target.value = '';
                 }
               }}
               data-testid="select-prescription-template"
             >
               <option value="" disabled>
-                ⚡ 1-Click Template...
+                1-Click Protocol Template...
               </option>
-              {Object.entries(CLINICAL_TEMPLATES).map(([key, t]) => (
+              {Object.entries(allTemplates).map(([key, t]) => (
                 <option key={key} value={key}>
                   {t.name}
                 </option>
@@ -153,7 +228,31 @@ export default function RXMedicationTable({
             </select>
           </div>
 
-          {/* Add Drug Button (Standardized h-10) */}
+          {/* Save as Template Button */}
+          <button
+            type="button"
+            className="h-10 px-3.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-lg text-xs font-semibold shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer"
+            onClick={() => setIsSaveTemplateModalOpen(true)}
+            title="Save current medications as a named template"
+            data-testid="btn-save-as-template"
+          >
+            <svg
+              className="w-3.5 h-3.5 text-slate-500"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+              <polyline points="17 21 17 13 7 13 7 21" />
+              <polyline points="7 3 7 8 15 8" />
+            </svg>
+            <span>Save as Template</span>
+          </button>
+
+          {/* Add Medicine Button */}
           <button
             type="button"
             className="h-10 px-4 bg-teal-700 hover:bg-teal-800 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer shrink-0"
@@ -178,7 +277,7 @@ export default function RXMedicationTable({
         </div>
       </div>
 
-      {/* 2. Linear / Notion Style Data Grid Table */}
+      {/* 2. Full-Width Linear Table with Drag Handle & Reordering */}
       <div className="overflow-x-auto rounded-lg border border-slate-200/60">
         <table
           className="w-full border-collapse"
@@ -186,9 +285,9 @@ export default function RXMedicationTable({
         >
           <thead>
             <tr className="bg-slate-50/70 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              <th className="w-12 py-3 px-2 text-center">#</th>
-              <th className="w-36 py-3 px-2 text-left">Brand</th>
-              <th className="min-w-[200px] py-3 px-2 text-left">Drug / Generic Name *</th>
+              <th className="w-14 py-3 px-2 text-center">Grip / #</th>
+              <th className="w-40 py-3 px-2 text-left">Brand</th>
+              <th className="min-w-[220px] py-3 px-2 text-left">Drug / Generic Name *</th>
               <th className="w-28 py-3 px-2 text-left">Dosage</th>
               <th className="w-36 py-3 px-2 text-left">Frequency</th>
               <th className="w-18 py-3 px-2 text-center">Days</th>
@@ -202,20 +301,49 @@ export default function RXMedicationTable({
             {medicines.map((row, idx) => (
               <tr
                 key={idx}
-                className="hover:bg-slate-50/60 transition-colors group"
+                draggable
+                onDragStart={(e) => handleDragStart(e, idx)}
+                onDragOver={(e) => handleDragOver(e, idx)}
+                onDrop={(e) => handleDrop(e, idx)}
+                onDragEnd={handleDragEnd}
+                className={`transition-colors group ${
+                  dragOverIndex === idx
+                    ? 'bg-teal-50/80 border-t-2 border-teal-500'
+                    : 'hover:bg-slate-50/60'
+                }`}
                 data-testid={`rx-row-${idx}`}
               >
-                {/* 1. S.No & Reorder Controls */}
+                {/* 1. 6-Dot Drag Handle & S.No */}
                 <td className="py-2.5 px-2 text-center">
-                  <div className="flex items-center justify-center gap-1">
+                  <div className="flex items-center justify-center gap-1.5">
+                    {/* 6-Dot Drag Grip Handle */}
+                    <div
+                      className="cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-600 p-0.5"
+                      title="Drag to reorder"
+                    >
+                      <svg
+                        className="w-3.5 h-3.5"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                      >
+                        <circle cx="8" cy="5" r="2" />
+                        <circle cx="16" cy="5" r="2" />
+                        <circle cx="8" cy="12" r="2" />
+                        <circle cx="16" cy="12" r="2" />
+                        <circle cx="8" cy="19" r="2" />
+                        <circle cx="16" cy="19" r="2" />
+                      </svg>
+                    </div>
+
                     <span className="font-mono font-bold text-xs text-slate-400">
                       {row.s_no || idx + 1}
                     </span>
-                    {/* Up / Down Reorder */}
-                    <div className="flex flex-col opacity-70 group-hover:opacity-100 transition-opacity">
+
+                    {/* Up / Down Accessibility Reorder Controls */}
+                    <div className="flex flex-col opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
                         type="button"
-                        className="text-[10px] text-slate-400 hover:text-teal-700 leading-none disabled:opacity-20 cursor-pointer p-0.5"
+                        className="text-[9px] text-slate-400 hover:text-teal-700 leading-none disabled:opacity-10 cursor-pointer p-0.5"
                         disabled={idx === 0}
                         onClick={() => onMoveDrug(idx, idx - 1)}
                         title="Move Up"
@@ -225,7 +353,7 @@ export default function RXMedicationTable({
                       </button>
                       <button
                         type="button"
-                        className="text-[10px] text-slate-400 hover:text-teal-700 leading-none disabled:opacity-20 cursor-pointer p-0.5"
+                        className="text-[9px] text-slate-400 hover:text-teal-700 leading-none disabled:opacity-10 cursor-pointer p-0.5"
                         disabled={idx === medicines.length - 1}
                         onClick={() => onMoveDrug(idx, idx + 1)}
                         title="Move Down"
@@ -430,6 +558,14 @@ export default function RXMedicationTable({
           </tbody>
         </table>
       </div>
+
+      {/* Save Current as Template Modal Dialog */}
+      <SaveTemplateModal
+        isOpen={isSaveTemplateModalOpen}
+        medicines={medicines}
+        onClose={() => setIsSaveTemplateModalOpen(false)}
+        onSaveTemplate={handleSaveNewTemplate}
+      />
     </section>
   );
 }

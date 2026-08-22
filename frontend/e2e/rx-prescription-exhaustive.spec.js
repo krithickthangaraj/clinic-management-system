@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
 test.describe('RX Prescription Consultation Desk - Exhaustive 20-Point Test Suite', () => {
   const mockVisitId = '101';

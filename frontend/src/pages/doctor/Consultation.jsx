@@ -1,16 +1,16 @@
-import React, { useEffect, useState, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { usePrescriptionForm } from '../../hooks/usePrescriptionForm';
+import { prescriptionService } from '../../services/prescriptionService';
 import { visitService } from '../../services/visitService';
 import { vitalsService } from '../../services/vitalsService';
-import { prescriptionService } from '../../services/prescriptionService';
-import { usePrescriptionForm } from '../../hooks/usePrescriptionForm';
 
-import PatientVitalsHeader from '../../components/prescription/PatientVitalsHeader';
-import MedicalHistorySidebar from '../../components/prescription/MedicalHistorySidebar';
 import ClinicalAssessmentForm from '../../components/prescription/ClinicalAssessmentForm';
-import RXMedicationTable from '../../components/prescription/RXMedicationTable';
+import MedicalHistorySidebar from '../../components/prescription/MedicalHistorySidebar';
+import PatientVitalsHeader from '../../components/prescription/PatientVitalsHeader';
 import PostPrescriptionRows from '../../components/prescription/PostPrescriptionRows';
 import PrescriptionFooter from '../../components/prescription/PrescriptionFooter';
+import RXMedicationTable from '../../components/prescription/RXMedicationTable';
 import PrescriptionView from '../../components/PrescriptionView';
 
 import './RXConsultation.css';
