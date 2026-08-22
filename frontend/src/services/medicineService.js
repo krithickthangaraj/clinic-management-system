@@ -1,11 +1,26 @@
 import api from './api';
 
 export const medicineService = {
+  async getAll(q = '') {
+    try {
+      const response = await api.get('/master/meds/drugs', {
+        params: { search: q || undefined },
+      });
+      return Array.isArray(response.data) ? response.data : [];
+    } catch {
+      return [];
+    }
+  },
+
   async searchDrugs(q) {
-    const response = await api.get('/master/meds/drugs', {
-      params: { search: q },
-    });
-    return response.data;
+    try {
+      const response = await api.get('/master/meds/drugs', {
+        params: { search: q },
+      });
+      return Array.isArray(response.data) ? response.data : [];
+    } catch {
+      return [];
+    }
   },
 
   async listTypes(q) {
@@ -93,3 +108,5 @@ export const medicineService = {
     await api.delete(`/master/meds/dosages/${id}`);
   },
 };
+
+export default medicineService;

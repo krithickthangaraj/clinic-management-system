@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
   --primary: #0f766e; /* Teal 700 - Professional medical look */
   --primary-dark: #0d9488; /* Teal 600 */

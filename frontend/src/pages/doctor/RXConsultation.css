@@ -1,0 +1,21 @@
+/* RX Consultation Clean Canvas */
+
+.rx-consultation-page {
+  min-height: 100vh;
+  background-color: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 120px; /* Ample buffer for sticky footer */
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: #0f172a;
+}
+
+.rx-consultation-container {
+  max-width: 1560px;
+  margin: 0 auto;
+  padding: 1.25rem 1.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  width: 100%;
+}

@@ -1,0 +1,128 @@
+from pydantic import BaseModel, Field
+from typing import List, Optional, Any, Dict
+from datetime import date, datetime
+from enum import Enum
+
+
+class FrequencyEnum(str, Enum):
+    OD = "OD (1-0-0)"
+    BD = "BD (1-0-1)"
+    TDS = "TDS (1-1-1)"
+    QID = "QID (1-1-1-1)"
+    HS = "HS (0-0-1)"
+    SOS = "SOS (As needed)"
+    STAT = "STAT (Immediately)"
+    QW = "QW (Once weekly)"
+
+
+class InstructionEnum(str, Enum):
+    AFTER_FOOD = "After food"
+    BEFORE_FOOD = "Before food"
+    WITH_FOOD = "With food"
+    EMPTY_STOMACH = "Empty stomach"
+    AT_BEDTIME = "At bedtime"
+
+
+# ---------------------------------------------------------------------------
+# 1. RX Medication Item Schema
+# ---------------------------------------------------------------------------
+class RXDrugItem(BaseModel):
+    s_no: Optional[int] = 1
+    brand_name: Optional[str] = None
+    drug_name: str
+    dosage: str = "1 Tab"
+    frequency: str = "TDS (1-1-1)"
+    days: int = 5
+    instructions: str = "After food"
+    quantity: int = 15
+
+    class Config:
+        from_attributes = True
+
+
+# ---------------------------------------------------------------------------
+# 2. Patient History Schema
+# ---------------------------------------------------------------------------
+class PatientHistoryPayload(BaseModel):
+    past_history: List[str] = Field(default_factory=list)
+    allergy_history: List[str] = Field(default_factory=list)
+    personal_history: List[str] = Field(default_factory=list)
+    family_history: List[str] = Field(default_factory=list)
+    surgical_history: List[str] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# 3. Clinical Assessment Schema
+# ---------------------------------------------------------------------------
+class ClinicalAssessmentPayload(BaseModel):
+    complaints: List[Dict[str, Any]] = Field(default_factory=list)
+    duration: Optional[str] = None
+    diagnosis: List[str] = Field(default_factory=list)
+    examination: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# 4. Plan, Billing & Follow-up Schema
+# ---------------------------------------------------------------------------
+class BillingAndPlanPayload(BaseModel):
+    lab_reports_reviewed: Optional[str] = None
+    investigations_next_visit: List[str] = Field(default_factory=list)
+    procedure: Optional[str] = None
+    referral: Optional[str] = None
+    notes: Optional[str] = None
+    advice: Optional[str] = None
+    
+    # Follow-up
+    for_followup: bool = False
+    followup_duration: Optional[int] = None
+    followup_unit: str = "Days"
+    followup_date: Optional[date] = None
+    
+    # Billing Breakdown
+    doctor_fee: float = 0.0
+    dressing_fee: float = 0.0
+    procedure_fee: float = 0.0
+    total_amount: float = 0.0
+    payment_mode: str = "Cash"
+    payment_status: str = "paid"
+
+
+# ---------------------------------------------------------------------------
+# 5. Full Prescription Submission Payload
+# ---------------------------------------------------------------------------
+class FullPrescriptionPayload(BaseModel):
+    visit_id: int
+    patient_id: int
+    doctor_id: Optional[int] = None
+    consultant_name: Optional[str] = None
+    
+    vitals_override: Optional[Dict[str, Any]] = None
+    history: PatientHistoryPayload = Field(default_factory=PatientHistoryPayload)
+    assessment: ClinicalAssessmentPayload = Field(default_factory=ClinicalAssessmentPayload)
+    medicines: List[RXDrugItem] = Field(default_factory=list)
+    plan_and_billing: BillingAndPlanPayload = Field(default_factory=BillingAndPlanPayload)
+    
+    status_action: str = "completed"  # "save" | "completed" | "followup" | "reminder" | "pending" | "not_visited"
+    print_requested: bool = False
+
+
+# ---------------------------------------------------------------------------
+# 6. Full Prescription Response Schema
+# ---------------------------------------------------------------------------
+class FullPrescriptionResponse(BaseModel):
+    prescription_id: Optional[int] = None
+    visit_id: int
+    patient_id: int
+    visit_number: str
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    printed_at: Optional[datetime] = None
+    
+    history: PatientHistoryPayload
+    assessment: ClinicalAssessmentPayload
+    medicines: List[RXDrugItem]
+    plan_and_billing: BillingAndPlanPayload
+    status: str
+
+    class Config:
+        from_attributes = True

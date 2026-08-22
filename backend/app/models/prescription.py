@@ -26,14 +26,16 @@ class PrescriptionDrug(Base):
     id = Column(Integer, primary_key=True, index=True)
     prescription_id = Column(Integer, ForeignKey("prescriptions.id"), nullable=False)
     
+    s_no = Column(Integer, nullable=True)
+    brand_name = Column(String, nullable=True)
     drug_name = Column(String, nullable=False)
-    dosage = Column(String, nullable=False)  # e.g., "250mg", "500mg"
-    frequency = Column(String, nullable=False)  # e.g., "1-0-1", "1-1-1" or "OD", "BD", "TDS", etc.
-    instructions = Column(Text, nullable=True)  # e.g., "After food", "Before sleep"
-    start_date = Column(Date, nullable=False)
-    number_of_days = Column(Integer, nullable=False)
-    end_date = Column(Date, nullable=False)
-    quantity = Column(Integer, nullable=False)  # Auto-calculated
+    dosage = Column(String, nullable=False)  # e.g., "1 Tab", "500mg"
+    frequency = Column(String, nullable=False)  # e.g., "TDS (1-1-1)", "1-0-1"
+    instructions = Column(Text, nullable=True)  # e.g., "After food"
+    start_date = Column(Date, nullable=True)
+    number_of_days = Column(Integer, nullable=True)
+    end_date = Column(Date, nullable=True)
+    quantity = Column(Integer, nullable=True)  # Auto-calculated
     
     # Relationships
     prescription = relationship("Prescription", back_populates="drugs")
