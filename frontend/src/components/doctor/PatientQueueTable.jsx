@@ -1,22 +1,14 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { visitService } from '../../services/visitService';
+import WaitingTimeBadge from './WaitingTimeBadge';
 
-/**
- * Dynamic Waiting Time CSS class calculation:
- * - > 30 mins: Bold Red (urgent alert)
- * - > 15 mins: Bold Amber (warning)
- * - <= 15 mins: Subtle Slate (normal)
- */
-export function getWaitingTimeClass(minutes) {
-  if (minutes >= 30) {
-    return 'waiting-time-urgent'; // Red
-  }
-  if (minutes >= 15) {
-    return 'waiting-time-warning'; // Amber
-  }
-  return 'waiting-time-normal'; // Slate
-}
+const CATEGORY_TABS = [
+  { id: 'all', label: 'All' },
+  { id: 'routine', label: 'Routine' },
+  { id: 'emergency', label: 'Emergency' },
+  { id: 'follow-up', label: 'Follow-up' },
+];
 
 export function getCategoryBadgeClass(cat) {
   const c = String(cat || '').toLowerCase();
@@ -29,36 +21,59 @@ export function getCategoryBadgeClass(cat) {
 export default function PatientQueueTable({
   patients = [],
   loading = false,
-  activeFilter = 'all',
+  activeKpiFilter = 'all',
+  selectedCategory = 'all',
+  onCategoryChange = () => {},
+  categoryCounts = {},
+  onResetFilters = () => {},
 }) {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Client-side quick search filtering
+  // Comprehensive multi-criteria filtering: KPI Filter + Segmented Category Filter + Search
   const filteredPatients = useMemo(() => {
     let list = Array.isArray(patients) ? patients : [];
 
-    // Filter by KPI category if selected
-    if (activeFilter === 'waiting') {
+    // 1. Filter by KPI status (from DashboardKPIs cards)
+    if (activeKpiFilter === 'waiting') {
       list = list.filter((p) =>
         ['vitals_done', 'registered', 'in_consultation'].includes(String(p.status).toLowerCase())
       );
-    } else if (activeFilter === 'followup') {
+    } else if (activeKpiFilter === 'followup') {
       list = list.filter((p) =>
         String(p.category || '').toLowerCase().includes('follow')
       );
-    } else if (activeFilter === 'reports_pending') {
+    } else if (activeKpiFilter === 'reports_pending') {
       list = list.filter((p) =>
         String(p.status || '').toLowerCase().includes('report') ||
         String(p.remarks || '').toLowerCase().includes('lab')
       );
-    } else if (activeFilter === 'completed') {
+    } else if (activeKpiFilter === 'completed') {
       list = list.filter((p) =>
         ['consulted', 'completed'].includes(String(p.status).toLowerCase())
       );
     }
 
-    // Filter by search query
+    // 2. Filter by Segmented Category Control
+    if (selectedCategory !== 'all') {
+      const catKey = selectedCategory.toLowerCase();
+      if (catKey === 'routine') {
+        list = list.filter((p) => {
+          const c = String(p.category || '').toLowerCase();
+          return c.includes('opd') || c.includes('routine') || c.includes('general') || c.includes('review');
+        });
+      } else if (catKey === 'emergency') {
+        list = list.filter((p) =>
+          String(p.category || '').toLowerCase().includes('emergen')
+        );
+      } else if (catKey === 'follow-up' || catKey === 'followup') {
+        list = list.filter((p) =>
+          String(p.category || '').toLowerCase().includes('follow')
+        );
+      }
+    }
+
+    // 3. Filter by search query
     if (searchTerm.trim()) {
       const q = searchTerm.toLowerCase().trim();
       list = list.filter(
@@ -71,7 +86,7 @@ export default function PatientQueueTable({
     }
 
     return list;
-  }, [patients, activeFilter, searchTerm]);
+  }, [patients, activeKpiFilter, selectedCategory, searchTerm]);
 
   // Automated Workflow: Update patient visit status to 'in_consultation' before routing to Doctor Desk
   const handleRowClick = async (visitId) => {
@@ -85,12 +100,19 @@ export default function PatientQueueTable({
     }
   };
 
+  const handleClearAllFilters = () => {
+    setSearchTerm('');
+    onResetFilters();
+  };
+
+  const hasActiveFilters = selectedCategory !== 'all' || activeKpiFilter !== 'all' || Boolean(searchTerm);
+
   return (
     <section className="patient-queue-section" aria-label="Patient Queue Table">
-      {/* Table Toolbar / Search */}
+      {/* Table Toolbar: Queue Title (Left) + Segmented Category Filters & Search (Right) */}
       <div className="queue-table-toolbar">
         <div className="toolbar-left">
-          <h2 className="queue-section-title">
+          <h2 className="section-header-title mb-0">
             Patient Consultation Queue
             <span className="queue-count-pill" data-testid="queue-count-pill">
               {filteredPatients.length} Patients
@@ -99,6 +121,34 @@ export default function PatientQueueTable({
         </div>
 
         <div className="toolbar-right">
+          {/* Segmented Category Filter (Near Patient Queue, Left of Search) */}
+          <div className="segmented-category-control" role="tablist" aria-label="Patient Category Filter">
+            {CATEGORY_TABS.map((tab) => {
+              const isSelected = selectedCategory === tab.id;
+              const count = categoryCounts[tab.id];
+
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={isSelected}
+                  className={`segmented-tab-btn ${isSelected ? 'is-active' : ''}`}
+                  onClick={() => onCategoryChange(tab.id)}
+                  data-testid={`category-tab-${tab.id}`}
+                >
+                  <span className="tab-btn-text">{tab.label}</span>
+                  {count !== undefined && count !== null && (
+                    <span className={`tab-count-tag ${isSelected ? 'count-active' : ''}`}>
+                      {count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Search Box */}
           <div className="queue-search-wrapper">
             <svg className="queue-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="11" cy="11" r="8" />
@@ -157,30 +207,49 @@ export default function PatientQueueTable({
                 </tr>
               ))
             ) : filteredPatients.length === 0 ? (
-              // Empty State Row
+              // Enhanced Empty State with "Clear Filters" button
               <tr className="empty-state-row" data-testid="empty-queue-row">
                 <td colSpan={8}>
                   <div className="empty-queue-container">
                     <div className="empty-icon-circle">
-                      <svg className="w-6 h-6 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <svg className="w-6 h-6 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
                         <circle cx="9" cy="7" r="4" />
                         <line x1="17" y1="11" x2="23" y2="11" />
                       </svg>
                     </div>
-                    <h3 className="empty-queue-heading">No Patients in Queue</h3>
+                    <h3 className="empty-queue-heading">
+                      {selectedCategory !== 'all'
+                        ? `No ${selectedCategory.toUpperCase()} Patients Found`
+                        : 'No Patients in Queue'}
+                    </h3>
                     <p className="empty-queue-text">
                       {searchTerm
-                        ? `No matching patients found for "${searchTerm}".`
-                        : 'All scheduled patients for this category have been attended.'}
+                        ? `No matching records found for "${searchTerm}".`
+                        : selectedCategory !== 'all'
+                        ? `There are currently no patients categorized under "${selectedCategory}".`
+                        : 'All scheduled patients have been attended.'}
                     </p>
+                    {hasActiveFilters && (
+                      <button
+                        type="button"
+                        className="btn-clear-filters"
+                        onClick={handleClearAllFilters}
+                        title="Reset all filters and view all patients"
+                      >
+                        <svg className="w-3.5 h-3.5 mr-1 inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                          <path d="M3 3v5h5" />
+                        </svg>
+                        <span>Clear Filters</span>
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>
             ) : (
-              // Data Rows
+              // High-Density Data Rows
               filteredPatients.map((patient) => {
-                const waitClass = getWaitingTimeClass(patient.waiting_minutes);
                 const catClass = getCategoryBadgeClass(patient.category);
 
                 return (
@@ -227,19 +296,12 @@ export default function PatientQueueTable({
                       </span>
                     </td>
 
-                    {/* 6. Dynamic Waiting Time */}
+                    {/* 6. Standardized Waiting Time Badge */}
                     <td className="td-waiting-time">
-                      <span
-                        className={`waiting-time-chip ${waitClass}`}
-                        data-testid="waiting-time-cell"
-                        data-minutes={patient.waiting_minutes}
-                      >
-                        <svg className="w-3.5 h-3.5 inline mr-1 opacity-80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <circle cx="12" cy="12" r="10" />
-                          <polyline points="12 6 12 12 16 14" />
-                        </svg>
-                        {patient.waiting_time}
-                      </span>
+                      <WaitingTimeBadge
+                        minutes={patient.waiting_minutes}
+                        timeString={patient.waiting_time}
+                      />
                     </td>
 
                     {/* 7. Remarks */}

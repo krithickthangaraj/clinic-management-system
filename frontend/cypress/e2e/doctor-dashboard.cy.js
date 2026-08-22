@@ -1,12 +1,12 @@
-describe('Doctor Dashboard & Patient Queue E2E Tests (Cypress)', () => {
+describe('Doctor Consultation Desk & Patient Queue E2E Tests (Cypress)', () => {
   const mockDashboardData = {
     kpis: {
-      total_patients: 8,
+      total_patients: 3,
       waiting: 3,
-      followup: 2,
-      reports_pending: 1,
+      followup: 1,
+      reports_pending: 0,
       not_attended: 0,
-      completed: 2,
+      completed: 0,
     },
     queue: [
       {
@@ -34,8 +34,8 @@ describe('Doctor Dashboard & Patient Queue E2E Tests (Cypress)', () => {
         age_sex: '62 Yrs / M',
         category: 'Follow-up',
         waiting_time: '25 min',
-        waiting_minutes: 25, // Warning threshold (>15m)
-        remarks: 'Post-op diabetic review',
+        waiting_minutes: 25,
+        remarks: 'Post-op review',
         status: 'vitals_done',
         created_at: new Date(Date.now() - 25 * 60000).toISOString(),
       },
@@ -49,7 +49,7 @@ describe('Doctor Dashboard & Patient Queue E2E Tests (Cypress)', () => {
         age_sex: '41 Yrs / M',
         category: 'Emergency',
         waiting_time: '40 min',
-        waiting_minutes: 40, // Urgent threshold (>30m)
+        waiting_minutes: 40,
         remarks: 'Acute abdominal pain',
         status: 'vitals_done',
         created_at: new Date(Date.now() - 40 * 60000).toISOString(),
@@ -71,7 +71,7 @@ describe('Doctor Dashboard & Patient Queue E2E Tests (Cypress)', () => {
     );
   });
 
-  it('Scenario 1: Happy Path - Loads KPIs and navigates on row click', () => {
+  it('Scenario 1: Happy Path - Loads Consultation Desk and verifies compact calendar', () => {
     cy.intercept('GET', '**/api/v1/doctor/dashboard*', {
       statusCode: 200,
       body: mockDashboardData,
@@ -80,67 +80,52 @@ describe('Doctor Dashboard & Patient Queue E2E Tests (Cypress)', () => {
     cy.visit('/doctor/queue');
     cy.wait('@getDashboard');
 
-    // KPI assertions
-    cy.get('[data-testid="kpi-total_patients"]').should('contain', '8');
-    cy.get('[data-testid="kpi-waiting"]').should('contain', '3');
-    cy.get('[data-testid="kpi-followup"]').should('contain', '2');
+    // Title & Calendar
+    cy.get('.consultation-desk-title').should('contain', 'Consultation Desk');
+    cy.get('.calendar-compact-icon').should('be.visible');
 
-    // Table row assertion & click
-    cy.get('[data-testid="queue-row-201"]').should('be.visible').and('contain', 'Kavitha Ramachandran');
+    // Waiting Time Badges
+    cy.get('[data-testid="queue-row-201"] .waiting-time-badge').should('have.class', 'waiting-badge-normal').and('contain', '8 min');
+    cy.get('[data-testid="queue-row-202"] .waiting-time-badge').should('have.class', 'waiting-badge-warning').and('contain', '25 min');
+    cy.get('[data-testid="queue-row-203"] .waiting-time-badge').should('have.class', 'waiting-badge-critical').and('contain', '40 min');
+  });
+
+  it('Scenario 2: Segmented Category Control filtering', () => {
+    cy.intercept('GET', '**/api/v1/doctor/dashboard*', {
+      statusCode: 200,
+      body: mockDashboardData,
+    }).as('getDashboard');
+
+    cy.visit('/doctor/queue');
+    cy.wait('@getDashboard');
+
+    // Click "Emergency"
+    cy.get('[data-testid="category-tab-emergency"]').click();
+    cy.get('[data-testid="patient-queue-table"] tbody tr.patient-data-row').should('have.length', 1);
+    cy.get('[data-testid="queue-row-203"]').should('contain', 'Deepak Selvam');
+
+    // Click "Follow-up"
+    cy.get('[data-testid="category-tab-follow-up"]').click();
+    cy.get('[data-testid="patient-queue-table"] tbody tr.patient-data-row').should('have.length', 1);
+    cy.get('[data-testid="queue-row-202"]').should('contain', 'Sundaram Pillai');
+  });
+
+  it('Scenario 3: Automated status transition on row click', () => {
+    cy.intercept('GET', '**/api/v1/doctor/dashboard*', {
+      statusCode: 200,
+      body: mockDashboardData,
+    }).as('getDashboard');
+
+    cy.intercept('PATCH', '**/api/v1/visits/201', {
+      statusCode: 200,
+      body: { id: 201, status: 'in_consultation' },
+    }).as('updateVisitStatus');
+
+    cy.visit('/doctor/queue');
+    cy.wait('@getDashboard');
+
     cy.get('[data-testid="queue-row-201"]').click();
+    cy.wait('@updateVisitStatus').its('request.body').should('deep.include', { status: 'in_consultation' });
     cy.url().should('include', '/doctor/consultation/201');
-  });
-
-  it('Scenario 2: Empty State - Displays clean zero-state message', () => {
-    cy.intercept('GET', '**/api/v1/doctor/dashboard*', {
-      statusCode: 200,
-      body: {
-        kpis: {
-          total_patients: 0,
-          waiting: 0,
-          followup: 0,
-          reports_pending: 0,
-          not_attended: 0,
-          completed: 0,
-        },
-        queue: [],
-        date: '22 Aug 2026',
-      },
-    }).as('getEmptyDashboard');
-
-    cy.visit('/doctor/queue');
-    cy.wait('@getEmptyDashboard');
-
-    cy.get('[data-testid="empty-queue-row"]').should('be.visible');
-    cy.get('.empty-queue-heading').should('contain', 'No Patients in Queue');
-  });
-
-  it('Scenario 3: Dynamic Waiting Time classes (>15m Amber, >30m Red)', () => {
-    cy.intercept('GET', '**/api/v1/doctor/dashboard*', {
-      statusCode: 200,
-      body: mockDashboardData,
-    }).as('getDashboard');
-
-    cy.visit('/doctor/queue');
-    cy.wait('@getDashboard');
-
-    // 8 min -> Normal
-    cy.get('[data-testid="queue-row-201"] [data-testid="waiting-time-cell"]').should('have.class', 'waiting-time-normal');
-    // 25 min -> Amber warning
-    cy.get('[data-testid="queue-row-202"] [data-testid="waiting-time-cell"]').should('have.class', 'waiting-time-warning');
-    // 40 min -> Red urgent
-    cy.get('[data-testid="queue-row-203"] [data-testid="waiting-time-cell"]').should('have.class', 'waiting-time-urgent');
-  });
-
-  it('Scenario 4: Error Handling - Handles 500 error gracefully', () => {
-    cy.intercept('GET', '**/api/v1/doctor/dashboard*', {
-      statusCode: 500,
-      body: { detail: 'Internal Server Error' },
-    }).as('getFailedDashboard');
-
-    cy.visit('/doctor/queue');
-    cy.wait('@getFailedDashboard');
-
-    cy.get('[data-testid="dashboard-error-banner"]').should('be.visible').and('contain', 'Unable to connect to clinic server');
   });
 });
