@@ -1,0 +1,234 @@
+/* Next-Generation Persistent GlobalLayout Stylesheet */
+
+:root {
+  --header-height: 54px;
+  --header-bg: rgba(255, 255, 255, 0.92);
+  --header-border: #e2e8f0;
+  --header-text-main: #0f172a;
+  --header-text-muted: #64748b;
+  --header-primary: #0f766e;
+  --header-primary-light: #f0fdfa;
+}
+
+.global-app-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: #f8fafc;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: #0f172a;
+}
+
+/* Sticky Glassmorphic Header */
+.global-sticky-header {
+  position: sticky;
+  top: 0;
+  z-index: 999;
+  height: var(--header-height);
+  background: var(--header-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--header-border);
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.03), 0 1px 2px -1px rgba(0, 0, 0, 0.02);
+  padding: 0 1.5rem;
+}
+
+.header-inner-shell {
+  max-width: 1560px;
+  margin: 0 auto;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+}
+
+/* Brand Section */
+.brand-identity-block {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  cursor: pointer;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.hospital-mark-icon {
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, #0f766e, #0d9488);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 4px rgba(15, 118, 110, 0.25);
+  transition: transform 0.2s ease;
+}
+
+.brand-identity-block:hover .hospital-mark-icon {
+  transform: scale(1.05);
+}
+
+.hospital-brand-titles {
+  display: flex;
+  flex-direction: column;
+}
+
+.hospital-title-main {
+  font-size: 0.88rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: #0f172a;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.hospital-tagline {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #64748b;
+  letter-spacing: 0.04em;
+}
+
+/* Navigation Links */
+.header-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.header-nav-links::-webkit-scrollbar {
+  display: none;
+}
+
+.nav-pill-link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.45rem 0.75rem;
+  color: #475569;
+  text-decoration: none;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.nav-pill-link:hover {
+  color: #0f172a;
+  background: #f1f5f9;
+}
+
+.nav-pill-link.active {
+  color: #0f766e;
+  background: #f0fdfa;
+  font-weight: 700;
+}
+
+.nav-pill-underline {
+  position: absolute;
+  bottom: -6px;
+  left: 0.75rem;
+  right: 0.75rem;
+  height: 2px;
+  background: #0f766e;
+  border-radius: 2px;
+}
+
+/* User Tray & Actions */
+.header-user-tray {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+.user-profile-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 0.22rem 0.65rem;
+  border-radius: 20px;
+}
+
+.user-avatar-disc {
+  width: 22px;
+  height: 22px;
+  background: #e2e8f0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.user-meta-lines {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.user-display-name {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.user-role-chip {
+  font-size: 0.62rem;
+  font-weight: 800;
+  padding: 0.1rem 0.38rem;
+  border-radius: 4px;
+  letter-spacing: 0.04em;
+}
+
+.role-admin {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.role-doctor {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.role-reception {
+  background: #ccfbf1;
+  color: #0f766e;
+}
+
+.role-lab {
+  background: #ede9fe;
+  color: #6d28d9;
+}
+
+.btn-header-logout {
+  background: transparent;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+  padding: 0.32rem 0.65rem;
+  border-radius: 6px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  transition: all 0.15s ease;
+}
+
+.btn-header-logout:hover {
+  background: #fee2e2;
+  border-color: #fecaca;
+  color: #dc2626;
+}
+
+/* Main Viewport */
+.global-main-viewport {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}

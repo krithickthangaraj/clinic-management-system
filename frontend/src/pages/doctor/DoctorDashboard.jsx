@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { visitService } from '../../services/visitService';
-import TopNavigation from '../../components/navigation/TopNavigation';
 import DashboardKPIs from '../../components/doctor/DashboardKPIs';
 import PatientQueueTable from '../../components/doctor/PatientQueueTable';
 import './DoctorDashboard.css';
@@ -67,9 +66,6 @@ export default function DoctorDashboard() {
 
   return (
     <div className="doctor-dashboard-layout">
-      {/* 1. Top Navigation Bar */}
-      <TopNavigation />
-
       {/* Main Dashboard Workspace */}
       <main className="doctor-dashboard-main">
         <div className="dashboard-content-max">

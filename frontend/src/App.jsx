@@ -10,6 +10,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import { ClinicProvider } from './contexts/ClinicContext';
 import AdminConfig from './pages/admin/AdminConfig';
 import MedicineAdmin from './pages/admin/MedicineAdmin';
+import HomePage from './pages/home/HomePage';
 import Dashboard from './pages/Dashboard';
 import Consultation from './pages/doctor/Consultation';
 import DoctorDashboard from './pages/doctor/DoctorDashboard';
@@ -31,7 +32,7 @@ function App() {
               element={
                 <ProtectedRoute>
                   <AppLayout>
-                    <Dashboard />
+                    <HomePage />
                   </AppLayout>
                 </ProtectedRoute>
               }
@@ -39,7 +40,7 @@ function App() {
             <Route
               path="/reception/register"
               element={
-                <ProtectedRoute allowedRoles={['reception', 'admin']}>
+                <ProtectedRoute allowedRoles={['reception', 'admin', 'doctor']}>
                   <AppLayout>
                     <PatientRegistration />
                   </AppLayout>
@@ -50,7 +51,9 @@ function App() {
               path="/doctor/queue"
               element={
                 <ProtectedRoute allowedRoles={['doctor', 'admin']}>
-                  <DoctorDashboard />
+                  <AppLayout>
+                    <DoctorDashboard />
+                  </AppLayout>
                 </ProtectedRoute>
               }
             />

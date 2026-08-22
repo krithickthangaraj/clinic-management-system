@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { visitService } from '../../services/visitService';
 
 /**
  * Dynamic Waiting Time CSS class calculation:
@@ -72,8 +73,14 @@ export default function PatientQueueTable({
     return list;
   }, [patients, activeFilter, searchTerm]);
 
-  const handleRowClick = (visitId) => {
+  // Automated Workflow: Update patient visit status to 'in_consultation' before routing to Doctor Desk
+  const handleRowClick = async (visitId) => {
     if (visitId) {
+      try {
+        await visitService.update(visitId, { status: 'in_consultation' });
+      } catch (err) {
+        console.warn('Status auto-update background notice:', err);
+      }
       navigate(`/doctor/consultation/${visitId}`);
     }
   };
