@@ -52,13 +52,25 @@ def format_age_sex(patient: Optional[Patient]) -> str:
     return f"{age_str} / {sex_abbr}"
 
 
-def calculate_waiting_time(created_at: Optional[datetime]) -> tuple[str, int]:
+def calculate_waiting_time(
+    created_at: Optional[datetime],
+    end_time: Optional[datetime] = None,
+    status: Optional[str] = None,
+) -> tuple[str, int]:
     """Calculate elapsed waiting time string and total minutes from visit created_at."""
     if not created_at:
         return "0 min", 0
     
-    now = datetime.now(created_at.tzinfo) if created_at.tzinfo else datetime.now()
-    diff = now - created_at
+    is_completed = str(status or "").lower() in ["completed", "consulted", "closed"]
+    if is_completed:
+        finish_dt = end_time if end_time else created_at
+        if finish_dt.tzinfo != created_at.tzinfo:
+            finish_dt = finish_dt.replace(tzinfo=created_at.tzinfo)
+        diff = finish_dt - created_at
+    else:
+        now = datetime.now(created_at.tzinfo) if created_at.tzinfo else datetime.now()
+        diff = now - created_at
+
     total_seconds = max(0, diff.total_seconds())
     total_minutes = int(total_seconds // 60)
     
@@ -150,8 +162,12 @@ async def get_doctor_dashboard(
             if has_pending_tests:
                 reports_pending_count += 1
             
-            # Dynamic waiting time calculation
-            waiting_time_str, waiting_mins = calculate_waiting_time(v.created_at)
+            # Dynamic waiting time calculation (frozen if completed)
+            waiting_time_str, waiting_mins = calculate_waiting_time(
+                v.created_at,
+                end_time=v.updated_at,
+                status=v.status,
+            )
             
             # Build Queue Item
             patient_obj = v.patient

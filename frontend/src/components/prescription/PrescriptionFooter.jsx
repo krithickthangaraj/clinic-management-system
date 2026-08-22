@@ -1,4 +1,3 @@
-import React from 'react';
 
 /**
  * ROW 6: Viewport Fixed Action Footer

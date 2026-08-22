@@ -54,6 +54,30 @@ body {
   line-height: 1.45;
 }
 
+/* Ultra-Thin Hairline Micro Scrollbar (1.5px) */
+.ultra-thin-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+.ultra-thin-scrollbar::-webkit-scrollbar {
+  height: 1.5px;
+  width: 1.5px;
+}
+
+.ultra-thin-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.ultra-thin-scrollbar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+
+.ultra-thin-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #0d9488;
+}
+
 /* Compact spacing: reduce padding by ~30% */
 .btn-primary {
   background-color: var(--primary);

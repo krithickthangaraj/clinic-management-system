@@ -7,6 +7,7 @@ import { vitalsService } from '../../services/vitalsService';
 
 import ClinicalAssessmentForm from '../../components/prescription/ClinicalAssessmentForm';
 import MedicalHistorySidebar from '../../components/prescription/MedicalHistorySidebar';
+import TemplateEngineSection from '../../components/prescription/TemplateEngineSection';
 import PatientVitalsHeader from '../../components/prescription/PatientVitalsHeader';
 import PostPrescriptionRows from '../../components/prescription/PostPrescriptionRows';
 import PrescriptionFooter from '../../components/prescription/PrescriptionFooter';
@@ -96,6 +97,49 @@ export default function Consultation() {
         } catch {
           // No prior prescription
         }
+        // Calculate actual patient waiting time (frozen for completed patients)
+        const calcWait = (v) => {
+          if (!v) return 0;
+          if (v.waiting_time_minutes !== undefined && v.waiting_time_minutes !== null && v.waiting_time_minutes > 0) {
+            return v.waiting_time_minutes;
+          }
+          if (!v.created_at) return 0;
+          const createdAt = new Date(v.created_at).getTime();
+          const isDone =
+            String(v.status || '').toLowerCase() === 'completed' ||
+            String(v.status || '').toLowerCase() === 'consulted' ||
+            String(v.status || '').toLowerCase() === 'closed';
+
+          if (isDone) {
+            const finishTime = v.completed_at
+              ? new Date(v.completed_at).getTime()
+              : v.updated_at
+              ? new Date(v.updated_at).getTime()
+              : createdAt;
+            return Math.max(0, Math.floor((finishTime - createdAt) / 60000));
+          }
+
+          return Math.max(0, Math.floor((Date.now() - createdAt) / 60000));
+        };
+
+        const initialWait = calcWait(visitData);
+        setElapsedMinutes(initialWait);
+
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+          timerRef.current = null;
+        }
+
+        const isDone =
+          String(visitData.status || '').toLowerCase() === 'completed' ||
+          String(visitData.status || '').toLowerCase() === 'consulted' ||
+          String(visitData.status || '').toLowerCase() === 'closed';
+
+        if (!isDone) {
+          timerRef.current = setInterval(() => {
+            setElapsedMinutes(calcWait(visitData));
+          }, 15000);
+        }
       } catch (err) {
         console.error('Failed to load consultation data:', err);
         setErrorMessage(
@@ -108,17 +152,30 @@ export default function Consultation() {
 
     loadData();
 
-    // Start consultation timer
-    const start = Date.now();
-    timerRef.current = setInterval(() => {
-      setElapsedMinutes(Math.floor((Date.now() - start) / 60000));
-    }, 10000);
-
     return () => {
       mounted = false;
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [visitId, setAssessment, setHistory, setMedicines, setPlanAndBilling]);
+
+  // Inline Vital Update Handler
+  const handleUpdateVital = async (field, value) => {
+    let nextVitals = { ...vitals, [field]: value };
+    const wt = field === 'weight_kg' ? value : nextVitals.weight_kg;
+    const ht = field === 'height_cm' ? value : nextVitals.height_cm;
+    if (wt && ht && ht > 0) {
+      nextVitals.bmi = parseFloat((wt / Math.pow(ht / 100, 2)).toFixed(1));
+    }
+    setVitals(nextVitals);
+
+    try {
+      if (visitId) {
+        await vitalsService.updateByVisit(visitId, { [field]: value });
+      }
+    } catch (err) {
+      console.error('Failed to update vital:', err);
+    }
+  };
 
   // Master Action Trigger (Save, Print, Status Updates)
   const handleAction = async (actionType) => {
@@ -154,6 +211,13 @@ export default function Consultation() {
       };
 
       const result = await prescriptionService.saveFull(payload);
+
+      // Stop consultation waiting timer once saved/completed
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      setVisit((prev) => (prev ? { ...prev, status: result.status || 'completed' } : prev));
 
       if (actionType === 'print') {
         setShowPrescription(true);
@@ -259,14 +323,27 @@ export default function Consultation() {
           vitals={vitals}
           consultantName={visit?.consultant_assigned}
           elapsedWaitMinutes={elapsedMinutes}
+          onUpdateVital={handleUpdateVital}
         />
 
-        {/* 2. CARD: Patient Medical History (Collapsible Accordion) */}
-        <MedicalHistorySidebar
-          history={history}
-          onAddTag={addHistoryTag}
-          onRemoveTag={removeHistoryTag}
-        />
+        {/* 2. ROW: Patient Medical History (Left) + Template Engine Section (Right) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div className="lg:col-span-8">
+            <MedicalHistorySidebar
+              history={history}
+              onAddTag={addHistoryTag}
+              onRemoveTag={removeHistoryTag}
+            />
+          </div>
+          <div className="lg:col-span-4">
+            <TemplateEngineSection
+              medicines={medicines}
+              onLoadTemplate={loadTemplate}
+              onAddDrug={addDrug}
+              onUpdateDrug={updateDrug}
+            />
+          </div>
+        </div>
 
         {/* 3. ROW 1: Clinical Assessment (Split 50/50) */}
         <ClinicalAssessmentForm
@@ -282,7 +359,6 @@ export default function Consultation() {
           onMoveDrug={moveDrug}
           onRemoveDrug={removeDrug}
           onUpdateDrug={updateDrug}
-          onLoadTemplate={loadTemplate}
         />
 
         {/* 5. ROWS 3, 4, 5: Labs & Investigations, Clinical Plan & Closing Billing */}

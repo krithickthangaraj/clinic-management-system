@@ -1,11 +1,21 @@
-import { useState } from 'react';
-import SmartCombobox from './SmartCombobox';
+import React, { useState } from 'react';
+import SmartField from './SmartField';
+
+const FOLLOWUP_PERIODS = [
+  { label: 'After 3 Days', days: 3, unit: 'Days' },
+  { label: 'After 5 Days', days: 5, unit: 'Days' },
+  { label: 'After 1 Week', days: 7, unit: 'Days' },
+  { label: 'After 2 Weeks', days: 14, unit: 'Days' },
+  { label: 'After 1 Month', days: 30, unit: 'Days' },
+  { label: 'After 3 Months', days: 90, unit: 'Days' },
+];
 
 /**
- * Post-Prescription Diagnostic, Clinical Plan & Billing Modules
- * - Diagnostic & Laboratory Investigations (Split 50/50)
- * - Clinical Plan & Procedures (Split in 3: Procedure, Referral, Notes)
- * - Dietary Advice, Follow-up & Fee Breakdown
+ * PostPrescriptionRows Component
+ * - Row 3: Diagnostic & Laboratory Investigations (Split 50/50)
+ * - Row 4: Clinical Plan & Procedures (Split 33/33/33)
+ * - Row 5: Advice, Follow-up & Doctor Billing
+ * - Production-grade compact layout
  */
 export default function PostPrescriptionRows({
   planAndBilling = {},
@@ -46,76 +56,104 @@ export default function PostPrescriptionRows({
     });
   };
 
+  const handleFollowupPeriodChange = (e) => {
+    const val = parseInt(e.target.value, 10);
+    if (!isNaN(val)) {
+      const targetDate = new Date();
+      targetDate.setDate(targetDate.getDate() + val);
+      const yyyy = targetDate.getFullYear();
+      const mm = String(targetDate.getMonth() + 1).padStart(2, '0');
+      const dd = String(targetDate.getDate()).padStart(2, '0');
+      const formattedDate = `${yyyy}-${mm}-${dd}`;
+
+      onChange({
+        ...planAndBilling,
+        for_followup: true,
+        followup_duration: val,
+        followup_date: formattedDate,
+      });
+    }
+  };
+
+  const invExcludeList = planAndBilling.investigations_next_visit || [];
+
   return (
     <div className="space-y-6">
       {/* =========================================================================
-          1. Diagnostic & Laboratory Investigations (Split 50/50)
+          ROW 3: Diagnostic & Laboratory Investigations (Split 50/50)
          ========================================================================= */}
       <section
         className="bg-white rounded-xl border border-slate-200/80 shadow-xs p-5"
         data-testid="row-3-labs-investigations"
       >
-        <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate-100">
+        <div className="flex items-center justify-between mb-3.5 pb-2 border-b border-slate-100">
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-indigo-600"></span>
+            <span className="w-2 h-2 rounded-full bg-teal-600"></span>
             <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
               Diagnostic &amp; Laboratory Investigations
             </h3>
           </div>
-          <span className="text-[11px] text-slate-400 font-medium hidden sm:inline">
-            Global investigation dictionary active
-          </span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-          {/* Left Column: Laboratory Reports Reviewed */}
-          <div className="flex flex-col gap-1.5">
+          {/* Left Column: Laboratory Reports (Read-Only) */}
+          <div className="flex flex-col gap-1">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
-                Laboratory Reports Reviewed
+              <label className="text-xs font-semibold text-slate-600 uppercase tracking-wider block">
+                Laboratory Reports
               </label>
-              <span className="text-[10px] font-medium text-slate-400">Current / Past</span>
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200/80">
+                Read-Only
+              </span>
             </div>
-            <textarea
-              className="w-full h-24 px-3.5 py-2.5 bg-slate-50/70 hover:bg-slate-50 border border-slate-200/80 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 shadow-2xs transition-all resize-y"
-              placeholder="e.g. Hb: 12.8, Platelets: 2.4L, Sugar: 142 mg/dL, Normal ECG..."
-              value={planAndBilling.lab_reports_reviewed || ''}
-              onChange={(e) =>
-                onChange({ ...planAndBilling, lab_reports_reviewed: e.target.value })
-              }
-              data-testid="input-lab-reports"
-            />
+            <div
+              className="w-full min-h-[96px] p-3 bg-slate-50 border border-slate-200/70 rounded-lg text-xs text-slate-700 leading-relaxed font-mono whitespace-pre-wrap select-text"
+              data-testid="view-lab-reports-readonly"
+            >
+              {planAndBilling.lab_reports_reviewed || planAndBilling.lab_reports ? (
+                <span>{planAndBilling.lab_reports_reviewed || planAndBilling.lab_reports}</span>
+              ) : (
+                <span className="text-slate-400 italic font-sans">
+                  No verified laboratory reports attached for this visit.
+                </span>
+              )}
+            </div>
           </div>
 
-          {/* Right Column: Investigations on Next Visit with SmartCombobox */}
+          {/* Right Column: Investigations on Next Visit with SmartField */}
           <div className="flex flex-col gap-2">
-            <SmartCombobox
+            <SmartField
               category="investigations"
               label="Investigations on Next Visit"
-              placeholder="Type investigation (e.g. CBC, HbA1c)..."
+              placeholder="Record investigation"
               value={invInput}
               onChange={setInvInput}
               onSelectTag={handleSelectInvestigation}
+              excludeTags={invExcludeList}
               testId="input-investigation-text"
             />
 
-            {/* Active Ordered Investigation Tags */}
-            <div className="flex flex-wrap gap-1.5 pt-1 min-h-[26px]" data-testid="investigations-tags-cloud">
+            {/* Active Ordered Investigation Tags (Single Line Horizontal Scroll in Whisper-Light Green) */}
+            <div
+              className="flex overflow-x-auto items-center gap-1.5 pb-0.5 ultra-thin-scrollbar h-7.5 max-h-7.5 min-h-[30px]"
+              data-testid="investigations-tags-cloud"
+            >
               {(planAndBilling.investigations_next_visit || []).length === 0 ? (
                 <span className="text-xs text-slate-400 italic">No investigations scheduled.</span>
               ) : (
                 (planAndBilling.investigations_next_visit || []).map((inv, idx) => (
                   <span
                     key={idx}
-                    className="inline-flex items-center gap-1.5 max-w-[260px] px-3 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-800 border border-indigo-200/70 shadow-2xs"
+                    className="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full text-xs font-semibold bg-emerald-50/30 text-emerald-950 border border-emerald-200/40 shadow-2xs shrink-0 whitespace-nowrap"
                     title={inv}
                     data-testid={`investigation-tag-${idx}`}
                   >
-                    <span className="truncate">{inv}</span>
+                    <span className="truncate max-w-[200px]">{inv}</span>
                     <button
                       type="button"
-                      className="hover:text-indigo-950 font-bold ml-0.5 cursor-pointer shrink-0"
+                      className="hover:text-rose-600 font-bold ml-0.5 transition-colors cursor-pointer"
                       onClick={() => onRemoveInvestigation(inv)}
+                      title="Remove"
                     >
                       &times;
                     </button>
@@ -128,36 +166,35 @@ export default function PostPrescriptionRows({
       </section>
 
       {/* =========================================================================
-          2. Clinical Plan & Procedures (Split in 3)
+          ROW 4: Clinical Plan & Procedures (Split in 3)
          ========================================================================= */}
       <section
         className="bg-white rounded-xl border border-slate-200/80 shadow-xs p-5"
         data-testid="row-4-clinical-plan"
       >
-        <div className="flex items-center gap-2 mb-4 pb-2 border-b border-slate-100">
-          <span className="w-2 h-2 rounded-full bg-emerald-600"></span>
+        <div className="flex items-center gap-2 mb-3.5 pb-2 border-b border-slate-100">
+          <span className="w-2 h-2 rounded-full bg-teal-600"></span>
           <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
             Clinical Plan &amp; Procedures
           </h3>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
-          {/* Column 1: Procedure with SmartCombobox */}
+          {/* Column 1: Procedure with SmartField */}
           <div className="flex flex-col gap-1.5">
-            <SmartCombobox
+            <SmartField
               category="procedures"
               label="Procedure Performed"
-              placeholder="e.g. Wound dressing..."
+              placeholder="Record procedure"
               value={procInput}
               onChange={setProcInput}
               onSelectTag={handleSelectProcedure}
-              testId="input-procedure-combo"
-              showAddButton={false}
+              testId="input-procedure-smart"
             />
             <input
               type="text"
-              className="w-full h-10 px-3.5 bg-slate-50/70 hover:bg-slate-50 border border-slate-200/80 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 shadow-2xs transition-all"
-              placeholder="Selected procedures summary..."
+              className="w-full h-10 px-3.5 bg-slate-50/70 hover:bg-slate-50 border border-slate-200/80 rounded-lg text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 shadow-xs transition-all"
+              placeholder="Procedure details"
               value={planAndBilling.procedure || ''}
               onChange={(e) =>
                 onChange({ ...planAndBilling, procedure: e.target.value })
@@ -166,22 +203,21 @@ export default function PostPrescriptionRows({
             />
           </div>
 
-          {/* Column 2: Referral with SmartCombobox */}
+          {/* Column 2: Referral with SmartField */}
           <div className="flex flex-col gap-1.5">
-            <SmartCombobox
+            <SmartField
               category="referrals"
               label="Specialist Referral"
-              placeholder="e.g. Cardiologist for Echo..."
+              placeholder="Record referral"
               value={refInput}
               onChange={setRefInput}
               onSelectTag={handleSelectReferral}
-              testId="input-referral-combo"
-              showAddButton={false}
+              testId="input-referral-smart"
             />
             <input
               type="text"
-              className="w-full h-10 px-3.5 bg-slate-50/70 hover:bg-slate-50 border border-slate-200/80 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 shadow-2xs transition-all"
-              placeholder="Referral details / doctor name..."
+              className="w-full h-10 px-3.5 bg-slate-50/70 hover:bg-slate-50 border border-slate-200/80 rounded-lg text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 shadow-xs transition-all"
+              placeholder="Referral details"
               value={planAndBilling.referral || ''}
               onChange={(e) =>
                 onChange({ ...planAndBilling, referral: e.target.value })
@@ -191,57 +227,52 @@ export default function PostPrescriptionRows({
           </div>
 
           {/* Column 3: Internal Notes */}
-          <div className="flex flex-col gap-1.5">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
-                Clinical &amp; Internal Notes
-              </label>
-              <span className="text-[10px] text-slate-400">Confidential</span>
-            </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-semibold text-slate-600 uppercase tracking-wider block">
+              Internal Notes
+            </label>
             <textarea
-              className="w-full h-22 px-3.5 py-2.5 bg-slate-50/70 hover:bg-slate-50 border border-slate-200/80 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 shadow-2xs transition-all resize-y"
-              placeholder="Private doctor's notes / dressing notes..."
+              className="w-full h-[98px] px-3.5 py-2 bg-slate-50/70 hover:bg-slate-50 border border-slate-200/80 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 shadow-xs transition-all resize-y"
+              placeholder="Internal doctor notes"
               value={planAndBilling.notes || ''}
               onChange={(e) =>
                 onChange({ ...planAndBilling, notes: e.target.value })
               }
-              data-testid="input-notes"
+              data-testid="input-internal-notes"
             />
           </div>
         </div>
       </section>
 
       {/* =========================================================================
-          3. Dietary Advice, Follow-up & Fee Breakdown
+          ROW 5: Dietary & Lifestyle Advice, Follow-up & Doctor Billing
          ========================================================================= */}
       <section
         className="bg-white rounded-xl border border-slate-200/80 shadow-xs p-5"
-        data-testid="row-5-closing-billing"
+        data-testid="row-5-advice-billing"
       >
-        <div className="flex items-center gap-2 mb-4 pb-2 border-b border-slate-100">
-          <span className="w-2 h-2 rounded-full bg-amber-600"></span>
+        <div className="flex items-center gap-2 mb-3.5 pb-2 border-b border-slate-100">
+          <span className="w-2 h-2 rounded-full bg-teal-600"></span>
           <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
-            Dietary Advice, Follow-up &amp; Fee Breakdown
+            Advice, Follow-up &amp; Billing
           </h3>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-          {/* Advice (4 Cols) with SmartCombobox */}
-          <div className="lg:col-span-4 flex flex-col gap-1.5">
-            <SmartCombobox
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* Left Column (5 cols): Dietary & Lifestyle Advice */}
+          <div className="lg:col-span-5 flex flex-col gap-1.5">
+            <SmartField
               category="advice"
-              label="Dietary & General Advice"
-              placeholder="e.g. Low salt diet..."
+              label="Dietary &amp; Lifestyle Advice"
+              placeholder="Record advice"
               value={adviceInput}
               onChange={setAdviceInput}
               onSelectTag={handleSelectAdvice}
-              testId="input-advice-combo"
-              showAddButton={false}
+              testId="input-advice-smart"
             />
-            <input
-              type="text"
-              className="w-full h-10 px-3.5 bg-slate-50/70 hover:bg-slate-50 border border-slate-200/80 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 shadow-2xs transition-all"
-              placeholder="Combined advice summary..."
+            <textarea
+              className="w-full h-20 px-3.5 py-2 bg-slate-50/70 hover:bg-slate-50 border border-slate-200/80 rounded-lg text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 shadow-xs transition-all resize-y"
+              placeholder="Advice summary"
               value={planAndBilling.advice || ''}
               onChange={(e) =>
                 onChange({ ...planAndBilling, advice: e.target.value })
@@ -250,16 +281,17 @@ export default function PostPrescriptionRows({
             />
           </div>
 
-          {/* Follow-up Schedule (4 Cols) */}
-          <div className="lg:col-span-4 flex flex-col gap-1.5">
-            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
-              Follow-up Review Schedule
+          {/* Middle Column (3 cols): Follow-up Schedule */}
+          <div className="lg:col-span-3 flex flex-col gap-1.5">
+            <label className="text-xs font-semibold text-slate-600 uppercase tracking-wider block">
+              Follow-up Review
             </label>
-            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/80 px-3 py-1.5 rounded-lg h-10">
-              <label className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700 cursor-pointer select-none">
+
+            <div className="p-3 bg-slate-50/70 border border-slate-200/80 rounded-lg space-y-2.5">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
                 <input
                   type="checkbox"
-                  className="w-4 h-4 rounded text-teal-600 focus:ring-teal-500 border-slate-300 cursor-pointer"
+                  className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
                   checked={Boolean(planAndBilling.for_followup)}
                   onChange={(e) =>
                     onChange({
@@ -267,100 +299,105 @@ export default function PostPrescriptionRows({
                       for_followup: e.target.checked,
                     })
                   }
-                  data-testid="checkbox-followup"
+                  data-testid="chk-for-followup"
                 />
-                <span>Review:</span>
+                <span className="text-xs font-semibold text-slate-700">Schedule Review</span>
               </label>
 
-              <input
-                type="number"
-                min="1"
-                className="w-14 h-7 px-1.5 text-center bg-white border border-slate-200 rounded-md text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-1 focus:ring-teal-500 shadow-2xs"
-                value={planAndBilling.followup_duration || 7}
-                onChange={(e) =>
-                  onChange({
-                    ...planAndBilling,
-                    followup_duration: parseInt(e.target.value, 10) || 1,
-                    for_followup: true,
-                  })
-                }
-                data-testid="input-followup-duration"
-              />
+              {planAndBilling.for_followup && (
+                <div className="space-y-2 pt-1 border-t border-slate-200/60">
+                  <select
+                    className="w-full h-10 px-2.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 shadow-2xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20 cursor-pointer"
+                    defaultValue=""
+                    onChange={handleFollowupPeriodChange}
+                    data-testid="select-followup-quick"
+                  >
+                    <option value="" disabled>
+                      Select interval...
+                    </option>
+                    {FOLLOWUP_PERIODS.map((period) => (
+                      <option key={period.days} value={period.days}>
+                        {period.label}
+                      </option>
+                    ))}
+                  </select>
 
-              <select
-                className="h-7 px-2 bg-white border border-slate-200 rounded-md text-xs font-medium text-slate-700 focus:outline-none focus:ring-1 focus:ring-teal-500 shadow-2xs cursor-pointer"
-                value={planAndBilling.followup_unit || 'Days'}
-                onChange={(e) =>
-                  onChange({ ...planAndBilling, followup_unit: e.target.value })
-                }
-                data-testid="select-followup-unit"
-              >
-                <option value="Days">Days</option>
-                <option value="Weeks">Weeks</option>
-                <option value="Months">Months</option>
-              </select>
-
-              <input
-                type="date"
-                className="h-7 px-1.5 bg-white border border-slate-200 rounded-md text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-teal-500 cursor-pointer"
-                value={planAndBilling.followup_date || ''}
-                onChange={(e) =>
-                  onChange({
-                    ...planAndBilling,
-                    followup_date: e.target.value,
-                    for_followup: true,
-                  })
-                }
-                data-testid="input-followup-date"
-              />
+                  <input
+                    type="date"
+                    className="w-full h-10 px-3 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 shadow-2xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    value={planAndBilling.followup_date || ''}
+                    onChange={(e) =>
+                      onChange({
+                        ...planAndBilling,
+                        followup_date: e.target.value,
+                      })
+                    }
+                    data-testid="input-followup-date"
+                  />
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Fees Breakdown (4 Cols) */}
+          {/* Right Column (4 cols): Billing Breakdown */}
           <div className="lg:col-span-4 flex flex-col gap-1.5">
-            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
-              Consultation &amp; Service Fees (₹)
+            <label className="text-xs font-semibold text-slate-600 uppercase tracking-wider block">
+              Consultation Charges
             </label>
-            <div className="flex items-center gap-2">
-              <div className="inline-flex items-center gap-1.5 h-10 px-3 bg-slate-50 border border-slate-200/80 rounded-lg flex-1">
-                <span className="text-xs font-semibold text-slate-500">Doc:</span>
-                <input
-                  type="number"
-                  className="w-full bg-transparent border-none text-xs font-mono font-bold text-slate-900 focus:outline-none text-right"
-                  placeholder="0"
-                  value={planAndBilling.doctor_fee || ''}
-                  onChange={(e) =>
-                    onChange({
-                      ...planAndBilling,
-                      doctor_fee: parseFloat(e.target.value) || 0,
-                    })
-                  }
-                  data-testid="input-doc-fee"
-                />
+
+            <div className="p-3.5 bg-slate-50/70 border border-slate-200/80 rounded-lg space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs text-slate-600 font-medium">Doctor Fee:</span>
+                <div className="relative w-28">
+                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-bold">
+                    ₹
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    className="w-full h-8 pl-6 pr-2 bg-white border border-slate-200 rounded text-xs font-semibold text-slate-900 text-right focus:outline-none focus:ring-2 focus:ring-emerald-500/20 shadow-2xs"
+                    value={planAndBilling.doctor_fee || 0}
+                    onChange={(e) =>
+                      onChange({
+                        ...planAndBilling,
+                        doctor_fee: parseFloat(e.target.value) || 0,
+                      })
+                    }
+                    data-testid="input-doctor-fee"
+                  />
+                </div>
               </div>
 
-              <div className="inline-flex items-center gap-1.5 h-10 px-3 bg-slate-50 border border-slate-200/80 rounded-lg flex-1">
-                <span className="text-xs font-semibold text-slate-500">Dress:</span>
-                <input
-                  type="number"
-                  className="w-full bg-transparent border-none text-xs font-mono font-bold text-slate-900 focus:outline-none text-right"
-                  placeholder="0"
-                  value={planAndBilling.procedure_fee || planAndBilling.dressing_fee || ''}
-                  onChange={(e) =>
-                    onChange({
-                      ...planAndBilling,
-                      procedure_fee: parseFloat(e.target.value) || 0,
-                    })
-                  }
-                  data-testid="input-proc-fee"
-                />
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs text-slate-600 font-medium">Dressing Fee:</span>
+                <div className="relative w-28">
+                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-bold">
+                    ₹
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    className="w-full h-8 pl-6 pr-2 bg-white border border-slate-200 rounded text-xs font-semibold text-slate-900 text-right focus:outline-none focus:ring-2 focus:ring-emerald-500/20 shadow-2xs"
+                    value={planAndBilling.dressing_fee || 0}
+                    onChange={(e) =>
+                      onChange({
+                        ...planAndBilling,
+                        dressing_fee: parseFloat(e.target.value) || 0,
+                      })
+                    }
+                    data-testid="input-dressing-fee"
+                  />
+                </div>
               </div>
 
-              <div className="inline-flex items-center gap-2 h-10 px-3.5 bg-teal-50 border border-teal-200 text-teal-800 rounded-lg shrink-0 shadow-2xs">
-                <span className="text-[10px] font-bold uppercase tracking-wider">TOTAL:</span>
-                <strong className="text-sm font-mono font-bold" data-testid="label-total-amount">
+              <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-200">
+                <strong className="text-xs font-bold text-slate-900 uppercase">Total Payable:</strong>
+                <span
+                  className="text-sm font-mono font-bold text-teal-800"
+                  data-testid="panel-total-payable"
+                >
                   ₹{totalAmount}
-                </strong>
+                </span>
               </div>
             </div>
           </div>

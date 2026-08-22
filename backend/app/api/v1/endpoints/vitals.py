@@ -77,12 +77,21 @@ async def update_vitals_by_visit(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role([UserRole.DOCTOR, UserRole.ADMIN]))
 ):
-    """Update vitals for a visit (doctor edit from consultation)."""
+    """Update or create vitals for a visit (doctor edit from consultation)."""
+    # Verify visit exists
+    visit = db.query(Visit).filter(Visit.id == visit_id).first()
+    if not visit:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Visit not found")
+
     vitals = db.query(Vitals).filter(Vitals.visit_id == visit_id).first()
     if not vitals:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vitals not found for this visit")
-    for k, v in data.model_dump(exclude_unset=True).items():
-        setattr(vitals, k, v)
+        payload = data.model_dump(exclude_unset=True)
+        payload["visit_id"] = visit_id
+        vitals = Vitals(**payload)
+        db.add(vitals)
+    else:
+        for k, v in data.model_dump(exclude_unset=True).items():
+            setattr(vitals, k, v)
     db.commit()
     db.refresh(vitals)
     return VitalsResponse.model_validate(vitals)

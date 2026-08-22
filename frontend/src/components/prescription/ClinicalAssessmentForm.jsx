@@ -1,20 +1,19 @@
-import { useState } from 'react';
-import SmartCombobox from './SmartCombobox';
+import React, { useState } from 'react';
+import SmartField from './SmartField';
 
-const QUICK_DURATION_CHIPS = [
-  '1 day',
-  '2 days',
-  '3 days',
-  '5 days',
-  '1 week',
-  '2 weeks',
-  '1 month',
-  '3 months',
-];
+const DURATION_UNITS = ['Days', 'Weeks', 'Months', 'Years'];
 
+/**
+ * ClinicalAssessmentForm Component
+ * - Left: Chief Complaints (SmartField with dynamic suggestion removal & single-line tags) + Compact Duration
+ * - Right: Diagnosis (SmartField with dynamic suggestion removal & single-line tags) + Physical Examination
+ * - Compact, production-grade vertical spacing
+ */
 export default function ClinicalAssessmentForm({
   assessment = {
     complaints: [],
+    duration_value: 3,
+    duration_unit: 'Days',
     duration: '',
     diagnosis: [],
     examination: '',
@@ -36,7 +35,10 @@ export default function ClinicalAssessmentForm({
         ...assessment,
         complaints: [
           ...current,
-          { complaint: trimmed, duration: assessment.duration || '' },
+          {
+            complaint: trimmed,
+            duration: `${assessment.duration_value || 3} ${assessment.duration_unit || 'Days'}`,
+          },
         ],
       });
     }
@@ -72,96 +74,116 @@ export default function ClinicalAssessmentForm({
     });
   };
 
+  const complaintExcludeList = (assessment.complaints || []).map((c) =>
+    typeof c === 'string' ? c : c.complaint || ''
+  );
+
   return (
     <section
       className="bg-white rounded-xl border border-slate-200/80 shadow-xs p-5 mb-6"
       data-testid="clinical-assessment-card"
     >
-      <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate-100">
+      <div className="flex items-center justify-between mb-3.5 pb-2 border-b border-slate-100">
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-teal-600"></span>
           <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
             Clinical Assessment &amp; Findings
           </h3>
         </div>
-        <span className="text-[11px] text-slate-400 font-medium hidden sm:inline">
-          Master suggestions &amp; autocomplete active
-        </span>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
         {/* =========================================================================
-            LEFT COLUMN: Complaints & Duration
+            LEFT COLUMN: Complaints & Compact Duration
            ========================================================================= */}
-        <div className="space-y-3.5">
-          {/* Smart Complaints Combobox */}
-          <SmartCombobox
+        <div className="space-y-2">
+          {/* Smart Complaints Field with Dynamic Suggestion Removal */}
+          <SmartField
             category="complaints"
             label="Chief Complaints"
-            placeholder="Type or select complaint (e.g. High fever)..."
+            placeholder="Record chief complaint"
             value={complaintInput}
             onChange={setComplaintInput}
             onSelectTag={handleAddComplaint}
+            excludeTags={complaintExcludeList}
             testId="input-complaint"
           />
 
-          {/* Active Complaints Tags (Smart Truncation with Tooltips) */}
-          <div className="flex flex-wrap gap-1.5 min-h-[26px]" data-testid="complaints-tags-cloud">
-            {(assessment.complaints || []).map((item, idx) => {
-              const label = typeof item === 'string' ? item : item.complaint;
-              return (
-                <span
-                  key={idx}
-                  className="inline-flex items-center gap-1.5 max-w-[280px] px-3 py-1 rounded-lg text-xs font-semibold bg-sky-50 text-sky-800 border border-sky-200/70 shadow-2xs group"
-                  title={label}
-                  data-testid={`complaint-tag-${idx}`}
-                >
-                  <span className="truncate">{label}</span>
-                  <button
-                    type="button"
-                    className="hover:text-sky-950 font-bold ml-0.5 cursor-pointer shrink-0"
-                    onClick={() => handleRemoveComplaint(idx)}
-                    aria-label={`Remove ${label}`}
+          {/* Active Recorded Complaints (Single Line Horizontal Scroll in Whisper-Light Green) */}
+          <div
+            className="flex overflow-x-auto items-center gap-1.5 pb-0.5 ultra-thin-scrollbar h-7.5 max-h-7.5 min-h-[30px]"
+            data-testid="complaints-tags-cloud"
+          >
+            {(assessment.complaints || []).length === 0 ? (
+              <span className="text-xs text-slate-400 italic">No complaints recorded.</span>
+            ) : (
+              (assessment.complaints || []).map((item, idx) => {
+                const label = typeof item === 'string' ? item : item.complaint;
+                return (
+                  <span
+                    key={idx}
+                    className="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full text-xs font-semibold bg-emerald-50/30 text-emerald-950 border border-emerald-200/40 shadow-2xs shrink-0 whitespace-nowrap"
+                    title={label}
+                    data-testid={`complaint-tag-${idx}`}
                   >
-                    &times;
-                  </button>
-                </span>
-              );
-            })}
+                    <span className="truncate max-w-[200px]">{label}</span>
+                    <button
+                      type="button"
+                      className="hover:text-rose-600 font-bold ml-0.5 transition-colors cursor-pointer"
+                      onClick={() => handleRemoveComplaint(idx)}
+                      title="Remove"
+                    >
+                      &times;
+                    </button>
+                  </span>
+                );
+              })
+            )}
           </div>
 
-          {/* Total Duration Input with 1-Click Suggestion Chips */}
-          <div className="flex flex-col gap-1.5 pt-1 border-t border-slate-100">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                Overall Duration
-              </label>
-              <span className="text-[10px] text-slate-400">1-click chips</span>
-            </div>
-
-            <input
-              type="text"
-              className="w-full h-10 px-3.5 bg-slate-50/70 hover:bg-slate-50 border border-slate-200/80 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 shadow-xs transition-all"
-              placeholder="e.g. 3 days, 1 week..."
-              value={assessment.duration || ''}
-              onChange={(e) =>
-                onChange({ ...assessment, duration: e.target.value })
-              }
-              data-testid="input-duration"
-            />
-
-            {/* Instant Clickable Duration Chips */}
-            <div className="flex flex-wrap gap-1 pt-0.5">
-              {QUICK_DURATION_CHIPS.map((chip) => (
-                <button
-                  key={chip}
-                  type="button"
-                  className="h-6 px-2.5 bg-slate-100 hover:bg-teal-50 hover:text-teal-800 hover:border-teal-300 border border-slate-200 text-slate-700 text-[11px] font-medium rounded-md transition-all cursor-pointer shadow-2xs flex items-center"
-                  onClick={() => onChange({ ...assessment, duration: chip })}
-                >
-                  {chip}
-                </button>
-              ))}
+          {/* Compact Duration: Sized only to the length required */}
+          <div className="space-y-1 pt-1.5 border-t border-slate-100">
+            <label className="text-xs font-semibold text-slate-600 uppercase tracking-wider block">
+              Overall Duration
+            </label>
+            <div className="flex items-center gap-2 max-w-[210px]">
+              <input
+                type="number"
+                min="1"
+                max="365"
+                className="w-20 h-10 px-3 bg-slate-50/70 hover:bg-slate-50 border border-slate-200/80 rounded-lg text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 shadow-xs transition-all text-center font-semibold"
+                value={assessment.duration_value ?? (parseInt(assessment.duration, 10) || 3)}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value, 10) || 1;
+                  const unit = assessment.duration_unit || 'Days';
+                  onChange({
+                    ...assessment,
+                    duration_value: val,
+                    duration: `${val} ${unit}`,
+                  });
+                }}
+                data-testid="input-duration-value"
+              />
+              <select
+                className="flex-1 h-10 px-2.5 bg-slate-50/70 hover:bg-slate-50 border border-slate-200/80 rounded-lg text-xs font-semibold text-slate-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 shadow-xs cursor-pointer transition-all"
+                value={assessment.duration_unit || 'Days'}
+                onChange={(e) => {
+                  const unit = e.target.value;
+                  const val = assessment.duration_value || 3;
+                  onChange({
+                    ...assessment,
+                    duration_unit: unit,
+                    duration: `${val} ${unit}`,
+                  });
+                }}
+                data-testid="select-duration-unit"
+              >
+                {DURATION_UNITS.map((unit) => (
+                  <option key={unit} value={unit}>
+                    {unit}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
         </div>
@@ -169,47 +191,56 @@ export default function ClinicalAssessmentForm({
         {/* =========================================================================
             RIGHT COLUMN: Diagnosis & Examination
            ========================================================================= */}
-        <div className="space-y-3.5">
-          {/* Smart Diagnosis Combobox */}
-          <SmartCombobox
+        <div className="space-y-2">
+          {/* Smart Diagnosis Field with Dynamic Suggestion Removal */}
+          <SmartField
             category="diagnoses"
             label="Provisional / Final Diagnosis"
-            placeholder="Type or select diagnosis (e.g. Acute Bronchitis)..."
+            placeholder="Record diagnosis"
             value={diagnosisInput}
             onChange={setDiagnosisInput}
             onSelectTag={handleAddDiagnosis}
+            excludeTags={assessment.diagnosis || []}
             testId="input-diagnosis"
           />
 
-          {/* Active Diagnosis Tags (Smart Truncation) */}
-          <div className="flex flex-wrap gap-1.5 min-h-[26px]" data-testid="diagnosis-tags-cloud">
-            {(assessment.diagnosis || []).map((diag, idx) => (
-              <span
-                key={idx}
-                className="inline-flex items-center gap-1.5 max-w-[280px] px-3 py-1 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200/70 shadow-2xs"
-                title={diag}
-                data-testid={`diagnosis-tag-${idx}`}
-              >
-                <span className="truncate">{diag}</span>
-                <button
-                  type="button"
-                  className="hover:text-emerald-950 font-bold ml-0.5 cursor-pointer shrink-0"
-                  onClick={() => handleRemoveDiagnosis(idx)}
+          {/* Active Recorded Diagnoses (Single Line Horizontal Scroll in Whisper-Light Green) */}
+          <div
+            className="flex overflow-x-auto items-center gap-1.5 pb-0.5 ultra-thin-scrollbar h-7.5 max-h-7.5 min-h-[30px]"
+            data-testid="diagnosis-tags-cloud"
+          >
+            {(assessment.diagnosis || []).length === 0 ? (
+              <span className="text-xs text-slate-400 italic">No diagnosis recorded.</span>
+            ) : (
+              (assessment.diagnosis || []).map((diag, idx) => (
+                <span
+                  key={idx}
+                  className="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full text-xs font-semibold bg-emerald-50/30 text-emerald-950 border border-emerald-200/40 shadow-2xs shrink-0 whitespace-nowrap"
+                  title={diag}
+                  data-testid={`diagnosis-tag-${idx}`}
                 >
-                  &times;
-                </button>
-              </span>
-            ))}
+                  <span className="truncate max-w-[200px]">{diag}</span>
+                  <button
+                    type="button"
+                    className="hover:text-rose-600 font-bold ml-0.5 transition-colors cursor-pointer"
+                    onClick={() => handleRemoveDiagnosis(idx)}
+                    title="Remove"
+                  >
+                    &times;
+                  </button>
+                </span>
+              ))
+            )}
           </div>
 
           {/* Physical Examination Textarea */}
-          <div className="flex flex-col gap-1.5 pt-1 border-t border-slate-100">
-            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+          <div className="space-y-1 pt-1.5 border-t border-slate-100">
+            <label className="text-xs font-semibold text-slate-600 uppercase tracking-wider block">
               Physical &amp; Systemic Examination
             </label>
             <textarea
-              className="w-full h-20 min-h-[80px] px-3.5 py-2.5 bg-slate-50/70 hover:bg-slate-50 border border-slate-200/80 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 shadow-xs transition-all resize-y"
-              placeholder="Systemic examination: Chest clear, Throat congested, Soft abdomen, No pallor/edema..."
+              className="w-full h-20 min-h-[80px] px-3.5 py-2 bg-slate-50/70 hover:bg-slate-50 border border-slate-200/80 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 shadow-xs transition-all resize-y"
+              placeholder="Systemic examination findings"
               value={assessment.examination || ''}
               onChange={(e) =>
                 onChange({ ...assessment, examination: e.target.value })
