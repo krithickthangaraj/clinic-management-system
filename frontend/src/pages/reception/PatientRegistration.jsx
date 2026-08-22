@@ -1,1007 +1,477 @@
-import { useEffect, useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { patientService } from '../../services/patientService';
 import { visitService } from '../../services/visitService';
 import { vitalsService } from '../../services/vitalsService';
-import './PatientRegistration.css';
-import AgeDobInput from '../../components/AgeDobInput';
+import { validateRegistrationPayload, calculateBmi } from '../../hooks/usePatientCalculations';
 
-const STATUS_LABELS = {
-  registered: 'Vitals',
-  vitals_done: 'In queue',
-  in_consultation: 'With doctor',
-  consulted: 'Seen',
-  completed: 'Done',
+import PatientSearch from '../../components/registration/PatientSearch';
+import DemographicsCard from '../../components/registration/DemographicsCard';
+import VitalsCard from '../../components/registration/VitalsCard';
+import ActionFooter from '../../components/registration/ActionFooter';
+import {
+  CheckCircleIcon,
+  AlertCircleIcon,
+  PlusIcon,
+  CloseIcon,
+} from '../../components/common/MedicalIcons';
+
+import './PatientRegistration.css';
+
+const INITIAL_DEMOGRAPHICS = {
+  patient_id: '',
+  barcode: '',
+  full_name: '',
+  name: '',
+  dob: '',
+  age: '',
+  age_format: 'Years',
+  gender: 'Male',
+  guardian_name: '',
+  guardian_relation: '',
+  phone_number: '',
+  phone: '',
+  address: '',
+  district: '',
 };
-const PENDING = ['registered'];
-const IN_QUEUE = ['vitals_done'];
-const ALREADY_SEEN = ['in_consultation', 'consulted', 'completed'];
+
+const INITIAL_VITALS = {
+  weight_kg: '',
+  height_cm: '',
+  bmi: '',
+  blood_pressure: '',
+  bp_systolic: '',
+  bp_diastolic: '',
+  temperature_f: '',
+  spo2_percent: '',
+  pulse_rate_bpm: '',
+  grbs_mg_dl: '',
+  consultant_assigned: 'Dr. T.S.Jeyagowthaman',
+  remarks: '',
+};
 
 export default function PatientRegistration() {
   const navigate = useNavigate();
-  const [searchQ, setSearchQ] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
-  const [searching, setSearching] = useState(false);
+
+  // Unified Form State
+  const [demographics, setDemographics] = useState(INITIAL_DEMOGRAPHICS);
+  const [vitals, setVitals] = useState(INITIAL_VITALS);
+  const [validationErrors, setValidationErrors] = useState({});
+
+  // Patient & Visit State
   const [selectedPatient, setSelectedPatient] = useState(null);
-  const [visitId, setVisitId] = useState(null);
-  const [vitalsSaved, setVitalsSaved] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [activeVisitId, setActiveVisitId] = useState(null);
   const [todayVisits, setTodayVisits] = useState([]);
-  const [todayFilter, setTodayFilter] = useState('in_queue'); // 'in_queue' | 'pending' | 'already_seen' | 'all'
+  const [todayFilter, setTodayFilter] = useState('in_queue');
   const [loadingToday, setLoadingToday] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [successBanner, setSuccessBanner] = useState(null);
+  const [errorMessage, setErrorMessage] = useState('');
 
-  const [reg, setReg] = useState({
-    name: '',
-    guardian_name: '',
-    phone: '',
-    age_years: '',
-    age_months: '0',
-    dob: '',
-    gender: 'male',
-    address: '',
-  });
-  const [vitals, setVitals] = useState({
-    temp_f: '',
-    bp_systolic: '',
-    bp_diastolic: '',
-    pr: '',
-    spo2: '',
-    sugar: '',
-    height_cm: '',
-    weight_kg: '',
-  });
-  const [patientDetails, setPatientDetails] = useState(null);
-  const [loadingDetails, setLoadingDetails] = useState(false);
-
-  // Search with debounce
-  useEffect(() => {
-    if (!searchQ.trim()) {
-      setSearchResults([]);
-      return;
-    }
-    const t = setTimeout(async () => {
-      setSearching(true);
-      try {
-        const list = await patientService.search(searchQ);
-        setSearchResults(Array.isArray(list) ? list : []);
-      } catch {
-        setSearchResults([]);
-      }
-      setSearching(false);
-    }, 300);
-    return () => clearTimeout(t);
-  }, [searchQ]);
-
-  const fetchToday = async () => {
+  // Fetch today's visits list for reception queue
+  const fetchTodayVisits = useCallback(async () => {
     setLoadingToday(true);
     try {
       const list = await visitService.getReceptionToday();
       setTodayVisits(Array.isArray(list) ? list : []);
-    } catch {
+    } catch (err) {
+      console.error('Failed to load today visits:', err);
       setTodayVisits([]);
+    } finally {
+      setLoadingToday(false);
     }
-    setLoadingToday(false);
+  }, []);
+
+  useEffect(() => {
+    fetchTodayVisits();
+    const interval = setInterval(fetchTodayVisits, 12000);
+    return () => clearInterval(interval);
+  }, [fetchTodayVisits]);
+
+  // Load existing patient details when selected from search or queue
+  const handleSelectPatient = async (patientItem) => {
+    setErrorMessage('');
+    setSuccessBanner(null);
+    setValidationErrors({});
+
+    try {
+      const pId = patientItem.id;
+      const { patient, history } = await patientService.getHistory(pId);
+      setSelectedPatient(patient);
+
+      // Populate Demographics
+      setDemographics({
+        patient_id: patient.patient_id || `PAT-${String(patient.id).padStart(5, '0')}`,
+        barcode: patient.barcode || patient.patient_id || '',
+        full_name: patient.full_name || patient.name || '',
+        name: patient.name || '',
+        dob: patient.dob ? String(patient.dob).split('T')[0] : '',
+        age: patient.age != null ? String(patient.age) : (patient.age_years != null ? String(patient.age_years) : ''),
+        age_format: patient.age_format || 'Years',
+        gender: patient.gender || 'Male',
+        guardian_name: patient.guardian_name || '',
+        guardian_relation: patient.guardian_relation || '',
+        phone_number: patient.phone_number || patient.phone || '',
+        phone: patient.phone || '',
+        address: patient.address || '',
+        district: patient.district || '',
+      });
+
+      // Populate latest vitals if available
+      const latestVisit = history?.[0];
+      const latestVitals = latestVisit?.vitals;
+
+      if (patientItem.visit_id) {
+        setActiveVisitId(patientItem.visit_id);
+      } else if (latestVisit?.visit?.id) {
+        setActiveVisitId(latestVisit.visit.id);
+      } else {
+        setActiveVisitId(null);
+      }
+
+      if (latestVitals) {
+        const tempF =
+          latestVitals.temperature_f != null
+            ? String(latestVitals.temperature_f)
+            : latestVitals.temperature != null
+            ? String(((latestVitals.temperature * 9) / 5 + 32).toFixed(1))
+            : '';
+
+        setVitals({
+          weight_kg: latestVitals.weight_kg != null ? String(latestVitals.weight_kg) : (latestVitals.weight != null ? String(latestVitals.weight) : ''),
+          height_cm: latestVitals.height_cm != null ? String(latestVitals.height_cm) : '',
+          bmi: latestVitals.bmi != null ? String(latestVitals.bmi) : '',
+          blood_pressure: latestVitals.blood_pressure || (latestVitals.bp_systolic && latestVitals.bp_diastolic ? `${latestVitals.bp_systolic}/${latestVitals.bp_diastolic}` : ''),
+          bp_systolic: latestVitals.bp_systolic != null ? String(latestVitals.bp_systolic) : '',
+          bp_diastolic: latestVitals.bp_diastolic != null ? String(latestVitals.bp_diastolic) : '',
+          temperature_f: tempF,
+          spo2_percent: latestVitals.spo2_percent != null ? String(latestVitals.spo2_percent) : (latestVitals.spo2 != null ? String(latestVitals.spo2) : ''),
+          pulse_rate_bpm: latestVitals.pulse_rate_bpm != null ? String(latestVitals.pulse_rate_bpm) : (latestVitals.pr != null ? String(latestVitals.pr) : ''),
+          grbs_mg_dl: latestVitals.grbs_mg_dl != null ? String(latestVitals.grbs_mg_dl) : (latestVitals.sugar != null ? String(latestVitals.sugar) : ''),
+          consultant_assigned: latestVitals.consultant_assigned || latestVisit?.visit?.consultant_assigned || 'Dr. T.S.Jeyagowthaman',
+          remarks: latestVitals.remarks || '',
+        });
+      } else {
+        setVitals(INITIAL_VITALS);
+      }
+    } catch (err) {
+      console.error('Error loading patient:', err);
+      setErrorMessage('Failed to load full patient details.');
+    }
   };
 
-  useEffect(() => {
-    fetchToday();
-  }, []);
-  useEffect(() => {
-    const id = setInterval(fetchToday, 12000);
-    return () => clearInterval(id);
-  }, []);
+  // Reset form to New Patient Mode
+  const handleResetToNew = () => {
+    setSelectedPatient(null);
+    setActiveVisitId(null);
+    setDemographics(INITIAL_DEMOGRAPHICS);
+    setVitals(INITIAL_VITALS);
+    setValidationErrors({});
+    setErrorMessage('');
+    setSuccessBanner(null);
+  };
 
-  const filteredToday = todayVisits.filter((v) => {
-    if (todayFilter === 'all') return true;
-    if (todayFilter === 'in_queue') return IN_QUEUE.includes(v.status);
-    if (todayFilter === 'pending') return PENDING.includes(v.status);
-    if (todayFilter === 'already_seen') return ALREADY_SEEN.includes(v.status);
-    return true;
+  // Demographics update handler
+  const handleDemographicsChange = (updatedFields) => {
+    setDemographics((prev) => {
+      const next = { ...prev, ...updatedFields };
+      const errs = { ...validationErrors };
+      Object.keys(updatedFields).forEach((key) => {
+        if (errs[key]) delete errs[key];
+      });
+      setValidationErrors(errs);
+      return next;
+    });
+  };
+
+  // Vitals update handler
+  const handleVitalsChange = (updatedFields) => {
+    setVitals((prev) => {
+      const next = { ...prev, ...updatedFields };
+      const errs = { ...validationErrors };
+      Object.keys(updatedFields).forEach((key) => {
+        if (errs[key]) delete errs[key];
+      });
+      setValidationErrors(errs);
+      return next;
+    });
+  };
+
+  // Prepare full payload for backend
+  const buildPayload = () => {
+    const bmiCalculated = calculateBmi(vitals.weight_kg, vitals.height_cm).bmi;
+
+    return {
+      // Demographics
+      patient_id: demographics.patient_id || undefined,
+      barcode: demographics.barcode || undefined,
+      full_name: (demographics.full_name || demographics.name || '').trim(),
+      name: (demographics.name || demographics.full_name || '').trim(),
+      dob: demographics.dob || null,
+      age: demographics.age !== '' ? parseInt(demographics.age, 10) : null,
+      age_format: demographics.age_format || 'Years',
+      gender: demographics.gender || 'Male',
+      guardian_name: (demographics.guardian_name || '').trim() || null,
+      guardian_relation: demographics.guardian_relation || null,
+      phone_number: (demographics.phone_number || demographics.phone || '').trim(),
+      phone: (demographics.phone || demographics.phone_number || '').trim(),
+      address: (demographics.address || '').trim() || null,
+      district: (demographics.district || '').trim() || null,
+
+      // Clinical Vitals
+      weight_kg: vitals.weight_kg !== '' ? parseFloat(vitals.weight_kg) : null,
+      height_cm: vitals.height_cm !== '' ? parseFloat(vitals.height_cm) : null,
+      bmi: bmiCalculated ? parseFloat(bmiCalculated) : null,
+      blood_pressure: (vitals.blood_pressure || '').trim() || null,
+      bp_systolic: vitals.bp_systolic !== '' ? parseInt(vitals.bp_systolic, 10) : null,
+      bp_diastolic: vitals.bp_diastolic !== '' ? parseInt(vitals.bp_diastolic, 10) : null,
+      temperature_f: vitals.temperature_f !== '' ? parseFloat(vitals.temperature_f) : null,
+      spo2_percent: vitals.spo2_percent !== '' ? parseInt(vitals.spo2_percent, 10) : null,
+      pulse_rate_bpm: vitals.pulse_rate_bpm !== '' ? parseInt(vitals.pulse_rate_bpm, 10) : null,
+      grbs_mg_dl: vitals.grbs_mg_dl !== '' ? parseInt(vitals.grbs_mg_dl, 10) : null,
+      consultant_assigned: vitals.consultant_assigned || 'Dr. T.S.Jeyagowthaman',
+      remarks: (vitals.remarks || '').trim() || null,
+    };
+  };
+
+  // Submit & Save Patient handler
+  const handleSave = async () => {
+    setErrorMessage('');
+    setSuccessBanner(null);
+
+    const payload = buildPayload();
+    const { isValid, errors } = validateRegistrationPayload(payload);
+
+    if (!isValid) {
+      setValidationErrors(errors);
+      setErrorMessage('Please review and resolve the highlighted fields.');
+      return null;
+    }
+
+    setIsSaving(true);
+    try {
+      let result = null;
+
+      if (selectedPatient?.id) {
+        // Edit Mode: Update patient details
+        const updatedPatient = await patientService.update(selectedPatient.id, payload);
+        let vid = activeVisitId;
+
+        // Ensure active visit exists
+        if (!vid) {
+          const newVisit = await visitService.createForPatient(selectedPatient.id);
+          vid = newVisit.id;
+          setActiveVisitId(vid);
+        }
+
+        // Save vitals
+        const vitalsPayload = {
+          visit_id: vid,
+          ...payload,
+        };
+        const updatedVitals = await vitalsService.create(vitalsPayload);
+
+        result = {
+          patient: updatedPatient,
+          visit: { id: vid },
+          vitals: updatedVitals,
+        };
+
+        setSuccessBanner({
+          title: 'Patient Record Updated',
+          patientId: updatedPatient.patient_id || `#${updatedPatient.id}`,
+          patientName: updatedPatient.full_name || updatedPatient.name,
+          visitNumber: `Visit #${vid}`,
+        });
+      } else {
+        // New Patient Registration
+        result = await patientService.register(payload);
+
+        setSuccessBanner({
+          title: 'Patient Registered & Added to Queue',
+          patientId: result.patient.patient_id || `#${result.patient.id}`,
+          patientName: result.patient.full_name || result.patient.name,
+          visitNumber: result.visit.visit_number,
+        });
+
+        // Clean reset for next registration
+        setDemographics(INITIAL_DEMOGRAPHICS);
+        setVitals(INITIAL_VITALS);
+        setSelectedPatient(null);
+        setActiveVisitId(null);
+      }
+
+      await fetchTodayVisits();
+      return result;
+    } catch (err) {
+      console.error('Save failed:', err);
+      const detail = err.response?.data?.detail;
+      const msg = typeof detail === 'string' ? detail : (Array.isArray(detail) ? detail.map(d => d.msg).join(', ') : 'Registration failed. Please check inputs.');
+      setErrorMessage(msg);
+      return null;
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Make Prescription Navigation
+  const handleMakePrescription = async () => {
+    let vid = activeVisitId;
+    if (!vid) {
+      const res = await handleSave();
+      if (!res) return;
+      vid = res.visit?.id;
+    }
+    if (vid) {
+      navigate(`/doctor/consultation/${vid}`);
+    }
+  };
+
+  // Make Investigation Report Navigation
+  const handleMakeInvestigation = async () => {
+    let vid = activeVisitId;
+    if (!vid) {
+      const res = await handleSave();
+      if (!res) return;
+      vid = res.visit?.id;
+    }
+    if (vid) {
+      navigate(`/lab`);
+    }
+  };
+
+  // Keyboard shortcut: Ctrl+Enter / Cmd+Enter to Save
+  useEffect(() => {
+    const handleGlobalKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        handleSave();
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   });
 
-  const countInQueue = todayVisits.filter((v) =>
-    IN_QUEUE.includes(v.status)
-  ).length;
-  const countPending = todayVisits.filter((v) =>
-    PENDING.includes(v.status)
-  ).length;
-  const countAlreadySeen = todayVisits.filter((v) =>
-    ALREADY_SEEN.includes(v.status)
-  ).length;
-
-  const formatTime = (d) => {
-    if (!d) return '—';
-    const dt = new Date(d);
-    return dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
-
-  const bmi =
-    vitals.weight_kg && vitals.height_cm
-      ? (
-          parseFloat(vitals.weight_kg) /
-          Math.pow(parseFloat(vitals.height_cm) / 100, 2)
-        ).toFixed(1)
-      : '—';
-
-  const handleRegChange = (e) => {
-    setReg({ ...reg, [e.target.name]: e.target.value });
-  };
-  const handleVitalsChange = (e) => {
-    setVitals({ ...vitals, [e.target.name]: e.target.value });
-  };
-
-  const hasAnyVitals = () =>
-    [
-      vitals.temp_f,
-      vitals.bp_systolic,
-      vitals.bp_diastolic,
-      vitals.pr,
-      vitals.spo2,
-      vitals.sugar,
-      vitals.height_cm,
-      vitals.weight_kg,
-    ].some((v) => v !== '' && v != null);
-
-  const buildVitalsPayload = (vid) => {
-    const tempC = vitals.temp_f
-      ? ((parseFloat(vitals.temp_f) - 32) * 5) / 9
-      : null;
-    return {
-      visit_id: vid,
-      temperature: tempC,
-      bp_systolic: vitals.bp_systolic ? parseInt(vitals.bp_systolic) : null,
-      bp_diastolic: vitals.bp_diastolic ? parseInt(vitals.bp_diastolic) : null,
-      pr: vitals.pr ? parseInt(vitals.pr) : null,
-      spo2: vitals.spo2 ? parseInt(vitals.spo2) : null,
-      sugar: vitals.sugar ? parseFloat(vitals.sugar) : null,
-      height_cm: vitals.height_cm ? parseFloat(vitals.height_cm) : null,
-      weight: vitals.weight_kg ? parseFloat(vitals.weight_kg) : null,
-    };
-  };
-
-  const handleRegister = async (e) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-    try {
-      const res = await patientService.register({
-        name: reg.name,
-        guardian_name: reg.guardian_name || null,
-        phone: reg.phone,
-        age_years: parseInt(reg.age_years) || 0,
-        age_months: parseInt(reg.age_months) || 0,
-        gender: reg.gender,
-        address: reg.address || null,
-      });
-      setVisitId(res.visit.id);
-      if (hasAnyVitals()) {
-        try {
-          await vitalsService.create(buildVitalsPayload(res.visit.id));
-        } catch (vErr) {
-          setError(vErr.response?.data?.detail || 'Vitals save failed');
-          setLoading(false);
-          return;
-        }
-      }
-      setVitalsSaved(true);
-      fetchToday();
-    } catch (err) {
-      setError(err.response?.data?.detail || 'Registration failed');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSaveVitals = async (e) => {
-    e.preventDefault();
-    if (!visitId) return;
-    setError('');
-    setLoading(true);
-    try {
-      await vitalsService.create(buildVitalsPayload(visitId));
-      setVitalsSaved(true);
-      fetchToday();
-    } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to save vitals');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleUpdate = async (e) => {
-    e.preventDefault();
-    if (!selectedPatient || !patientDetails) return;
-    setError('');
-    setLoading(true);
-    try {
-      await patientService.update(selectedPatient.id, {
-        name: reg.name,
-        guardian_name: reg.guardian_name || null,
-        phone: reg.phone,
-        age_years: parseInt(reg.age_years) || 0,
-        age_months: parseInt(reg.age_months) || 0,
-        gender: reg.gender,
-        address: reg.address || null,
-      });
-      if (hasAnyVitals()) {
-        let vid = visitId;
-        if (!vid) {
-          const v = await visitService.createForPatient(selectedPatient.id);
-          vid = v.id;
-        }
-        await vitalsService.create(buildVitalsPayload(vid));
-      }
-      setVitalsSaved(true);
-      fetchToday();
-    } catch (err) {
-      setError(err.response?.data?.detail || 'Update failed');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const resetForNext = () => {
-    setSearchQ('');
-    setSearchResults([]);
-    setSelectedPatient(null);
-    setPatientDetails(null);
-    setVisitId(null);
-    setVitalsSaved(false);
-    setReg({
-      name: '',
-      guardian_name: '',
-      phone: '',
-      age_years: '',
-      age_months: '0',
-      gender: 'male',
-      address: '',
-    });
-    setVitals({
-      temp_f: '',
-      bp_systolic: '',
-      bp_diastolic: '',
-      pr: '',
-      spo2: '',
-      sugar: '',
-      height_cm: '',
-      weight_kg: '',
-    });
-    setError('');
-    fetchToday();
-  };
-
-  // Load full patient + latest vitals when existing patient is selected
-  useEffect(() => {
-    if (!selectedPatient) {
-      setPatientDetails(null);
-      return;
-    }
-    let cancelled = false;
-    setLoadingDetails(true);
-    setPatientDetails(null);
-    const load = async () => {
-      try {
-        const { patient, history } = await patientService.getHistory(
-          selectedPatient.id
-        );
-        if (cancelled) return;
-        setPatientDetails(patient);
-        const latest = history?.[0]?.vitals;
-        if (latest) {
-          const tempF =
-            latest.temperature != null
-              ? String(((latest.temperature * 9) / 5 + 32).toFixed(1))
-              : '';
-          setVitals({
-            temp_f: tempF,
-            bp_systolic:
-              latest.bp_systolic != null ? String(latest.bp_systolic) : '',
-            bp_diastolic:
-              latest.bp_diastolic != null ? String(latest.bp_diastolic) : '',
-            pr: latest.pr != null ? String(latest.pr) : '',
-            spo2: latest.spo2 != null ? String(latest.spo2) : '',
-            sugar: latest.sugar != null ? String(latest.sugar) : '',
-            height_cm: latest.height_cm != null ? String(latest.height_cm) : '',
-            weight_kg: latest.weight != null ? String(latest.weight) : '',
-          });
-        } else {
-          setVitals({
-            temp_f: '',
-            bp_systolic: '',
-            bp_diastolic: '',
-            pr: '',
-            spo2: '',
-            sugar: '',
-            height_cm: '',
-            weight_kg: '',
-          });
-        }
-        setReg({
-          name: patient.name || '',
-          guardian_name: patient.guardian_name || '',
-          phone: patient.phone || '',
-          age_years: patient.age_years != null ? String(patient.age_years) : '',
-          age_months:
-            patient.age_months != null ? String(patient.age_months) : '0',
-          gender: patient.gender || 'male',
-          address: patient.address || '',
-        });
-      } catch {
-        if (!cancelled) setPatientDetails(null);
-      }
-      if (!cancelled) setLoadingDetails(false);
-    };
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedPatient?.id]);
-
   return (
-    <div className="reception-page">
-      <div className="reception-layout">
-        {/* Left: Today's patients (live) */}
-        <aside className="reception-left">
-          <div className="card today-card">
-            <h3 className="today-title">Today&apos;s Patients</h3>
-            <div className="today-tabs">
-              <button
-                type="button"
-                className={`today-tab ${todayFilter === 'in_queue' ? 'active' : ''}`}
-                onClick={() => setTodayFilter('in_queue')}
-              >
-                In Queue <span className="today-count">({countInQueue})</span>
-              </button>
-              <button
-                type="button"
-                className={`today-tab ${todayFilter === 'pending' ? 'active' : ''}`}
-                onClick={() => setTodayFilter('pending')}
-              >
-                Pending <span className="today-count">({countPending})</span>
-              </button>
-              <button
-                type="button"
-                className={`today-tab ${todayFilter === 'already_seen' ? 'active' : ''}`}
-                onClick={() => setTodayFilter('already_seen')}
-              >
-                Already Seen{' '}
-                <span className="today-count">({countAlreadySeen})</span>
-              </button>
-              <button
-                type="button"
-                className={`today-tab ${todayFilter === 'all' ? 'active' : ''}`}
-                onClick={() => setTodayFilter('all')}
-              >
-                All <span className="today-count">({todayVisits.length})</span>
-              </button>
-            </div>
-            <div className="today-list">
-              {loadingToday && filteredToday.length === 0 ? (
-                <p className="today-empty">Loading…</p>
-              ) : filteredToday.length === 0 ? (
-                <p className="today-empty">No patients yet today</p>
-              ) : (
-                <ul className="today-visits">
-                  {filteredToday.map((v) => (
-                    <li
-                      key={v.id}
-                      className="today-item today-item-clickable"
-                      onClick={() => {
-                        setSelectedPatient({
-                          id: v.patient_id,
-                          name: v.patient_name || `#${v.patient_id}`,
-                        });
-                        setVisitId(v.id);
-                        setSearchResults([]);
-                      }}
-                    >
-                      <div className="today-item-main">
-                        <span className="today-name">
-                          {v.patient_name || `#${v.patient_id}`}
-                        </span>
-                        <span className="today-badge" data-status={v.status}>
-                          {STATUS_LABELS[v.status] || v.status}
-                        </span>
-                      </div>
-                      <div className="today-item-meta">
-                        <span className="today-visit-num">
-                          {v.visit_number}
-                        </span>
-                        <span className="today-time">
-                          {formatTime(v.created_at)}
-                        </span>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+    <div className="patient-registration-container">
+      {/* Top Application Header */}
+      <header className="module-top-header">
+        <div className="header-left-meta">
+          <button
+            type="button"
+            className="btn-header-back"
+            onClick={() => navigate('/')}
+            title="Return to Dashboard"
+          >
+            Back
+          </button>
+          <div>
+            <h1 className="header-page-title">Patient Registration &amp; Clinical Vitals</h1>
+            <p className="header-page-desc">Hospital Outpatient Management System</p>
           </div>
-        </aside>
+        </div>
 
-        {/* Right: Register form */}
-        <main className="reception-right">
-          <header className="page-header">
-            <h1>Register &amp; Vitals</h1>
-            <button
-              type="button"
-              onClick={() => navigate('/')}
-              className="btn-back"
-            >
-              Dashboard
-            </button>
-          </header>
+        <div className="header-right-meta">
+          <button
+            type="button"
+            className="btn-new-reg-pill"
+            onClick={handleResetToNew}
+            title="Start fresh new registration"
+          >
+            <PlusIcon className="w-3.5 h-3.5 inline mr-1" />
+            <span>Register New Patient</span>
+          </button>
+        </div>
+      </header>
 
-          {/* Search — before register */}
-          <section className="card search-section">
-            <label className="search-label">
-              <span className="search-icon">🔍</span>
-              <input
-                type="text"
-                placeholder="Search by Patient ID, Name or Contact..."
-                value={searchQ}
-                onChange={(e) => setSearchQ(e.target.value)}
-                className="search-input"
-              />
-            </label>
-            {searching && <span className="search-hint">Searching...</span>}
-            {searchResults.length > 0 && !selectedPatient && !visitId && (
-              <ul className="search-results">
-                {searchResults.map((p) => (
-                  <li
-                    key={p.id}
-                    className="search-item"
-                    onClick={() => {
-                      setSelectedPatient(p);
-                      setSearchResults([]);
-                      setSearchQ('');
-                    }}
-                  >
-                    <span className="item-id">#{p.id}</span>
-                    <span className="item-name">{p.name}</span>
-                    <span className="item-phone">{p.phone}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
+      {/* Main 2-Column Responsive Layout */}
+      <div className="registration-grid-layout">
+        {/* Left Column: Search & Live Queue */}
+        <div className="layout-col-sidebar">
+          <PatientSearch
+            onSelectPatient={handleSelectPatient}
+            selectedPatientId={selectedPatient?.id}
+            todayVisits={todayVisits}
+            todayFilter={todayFilter}
+            onFilterChange={setTodayFilter}
+            loadingToday={loadingToday}
+          />
+        </div>
 
-          {error && <div className="error-message">{error}</div>}
-
-          {/* Existing: loading full details */}
-          {selectedPatient && loadingDetails && (
-            <section className="card form-grid">
-              <p className="loading-details">Loading patient details…</p>
-            </section>
-          )}
-
-          {/* Existing: load failed */}
-          {selectedPatient && !loadingDetails && !patientDetails && (
-            <section className="card form-grid">
-              <p className="loading-details">Could not load patient.</p>
+        {/* Right Column: Unified Demographics & Vitals Form */}
+        <main className="layout-col-main">
+          {/* Success Banner Alert */}
+          {successBanner && (
+            <div className="alert-banner-success" role="alert">
+              <div className="banner-icon-col">
+                <CheckCircleIcon className="w-5 h-5" />
+              </div>
+              <div className="banner-content-col">
+                <h4 className="banner-heading">{successBanner.title}</h4>
+                <p className="banner-details">
+                  Patient: <strong>{successBanner.patientName}</strong> ({successBanner.patientId}) &bull;{' '}
+                  {successBanner.visitNumber}
+                </p>
+              </div>
               <button
                 type="button"
-                onClick={() => {
-                  setSelectedPatient(null);
-                  setPatientDetails(null);
-                  setVisitId(null);
-                }}
-                className="btn-ghost"
+                className="banner-close-btn"
+                onClick={() => setSuccessBanner(null)}
+                title="Dismiss"
               >
-                Choose Another
+                <CloseIcon className="w-4 h-4" />
               </button>
-            </section>
+            </div>
           )}
 
-          {/* Edit: existing patient with full form (registration + vitals) */}
-          {selectedPatient && patientDetails && !vitalsSaved && (
-            <form onSubmit={handleUpdate} className="card form-grid">
-              <div className="form-head-row">
-                <h3>Edit Patient</h3>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedPatient(null);
-                    setPatientDetails(null);
-                    setVisitId(null);
-                  }}
-                  className="btn-ghost btn-sm"
-                >
-                  Choose Another
-                </button>
+          {/* Error Message Alert */}
+          {errorMessage && (
+            <div className="alert-banner-danger" role="alert">
+              <div className="banner-icon-col">
+                <AlertCircleIcon className="w-5 h-5" />
               </div>
-              <div className="grid-2">
-                <div className="field">
-                  <label>Patient Name *</label>
-                  <input
-                    name="name"
-                    value={reg.name}
-                    onChange={handleRegChange}
-                    required
-                    placeholder="Full name"
-                  />
-                </div>
-                <div className="field">
-                  <label>Guardian Name</label>
-                  <input
-                    name="guardian_name"
-                    value={reg.guardian_name}
-                    onChange={handleRegChange}
-                    placeholder="Guardian"
-                  />
-                </div>
+              <div className="banner-content-col">
+                <h4 className="banner-heading">Registration Alert</h4>
+                <p className="banner-details">{errorMessage}</p>
               </div>
-              <div className="field">
-                <label>Age / DOB *</label>
-                <AgeDobInput
-                  mode={reg.dob_mode || 'age'}
-                  ageYears={reg.age_years}
-                  ageMonths={reg.age_months}
-                  dob={reg.dob}
-                  onModeChange={(mode) => setReg({ ...reg, dob_mode: mode })}
-                  onAgeChange={(years, months) =>
-                    setReg({ ...reg, age_years: years, age_months: months })
-                  }
-                  onDobChange={(dob) => setReg({ ...reg, dob: dob })}
-                />
-              </div>
-              <div className="field">
-                <label>Gender *</label>
-                <select
-                  name="gender"
-                  value={reg.gender}
-                  onChange={handleRegChange}
-                >
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
-              <div className="field">
-                <label>Contact Number *</label>
-                <input
-                  name="phone"
-                  type="tel"
-                  value={reg.phone}
-                  onChange={handleRegChange}
-                  required
-                  placeholder="10 digits"
-                  inputMode="numeric"
-                />
-              </div>
-              <div className="field">
-                <label>Address</label>
-                <input
-                  name="address"
-                  value={reg.address}
-                  onChange={handleRegChange}
-                  placeholder="Address"
-                />
-              </div>
-              <h3 className="vitals-subheading">Vitals</h3>
-              <div className="vitals-row">
-                <div className="field">
-                  <label>Temp (°F)</label>
-                  <input
-                    name="temp_f"
-                    type="number"
-                    step="0.1"
-                    value={vitals.temp_f}
-                    onChange={handleVitalsChange}
-                    placeholder="98.6"
-                    inputMode="decimal"
-                  />
-                </div>
-                <div className="field">
-                  <label>BP (mmHg)</label>
-                  <div className="bp-input">
-                    <input
-                      name="bp_systolic"
-                      type="number"
-                      value={vitals.bp_systolic}
-                      onChange={handleVitalsChange}
-                      placeholder="120"
-                    />
-                    <span className="bp-sep">/</span>
-                    <input
-                      name="bp_diastolic"
-                      type="number"
-                      value={vitals.bp_diastolic}
-                      onChange={handleVitalsChange}
-                      placeholder="80"
-                    />
-                  </div>
-                </div>
-                <div className="field">
-                  <label>PR (bpm)</label>
-                  <input
-                    name="pr"
-                    type="number"
-                    value={vitals.pr}
-                    onChange={handleVitalsChange}
-                    placeholder="72"
-                    inputMode="numeric"
-                  />
-                </div>
-                <div className="field">
-                  <label>SpO₂ (%)</label>
-                  <input
-                    name="spo2"
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={vitals.spo2}
-                    onChange={handleVitalsChange}
-                    placeholder="98"
-                    inputMode="numeric"
-                  />
-                </div>
-              </div>
-              <div className="vitals-row vitals-row-4">
-                <div className="field">
-                  <label>RBS (Random Blood Sugar)</label>
-                  <input
-                    name="sugar"
-                    type="number"
-                    step="0.1"
-                    value={vitals.sugar}
-                    onChange={handleVitalsChange}
-                    placeholder="100"
-                    inputMode="decimal"
-                  />
-                </div>
-                <div className="field">
-                  <label>Height (cm)</label>
-                  <input
-                    name="height_cm"
-                    type="number"
-                    step="0.1"
-                    value={vitals.height_cm}
-                    onChange={handleVitalsChange}
-                    placeholder="170"
-                    inputMode="decimal"
-                  />
-                </div>
-                <div className="field">
-                  <label>Weight (kg)</label>
-                  <input
-                    name="weight_kg"
-                    type="number"
-                    step="0.1"
-                    value={vitals.weight_kg}
-                    onChange={handleVitalsChange}
-                    placeholder="70"
-                    inputMode="decimal"
-                  />
-                </div>
-                <div className="field">
-                  <label>BMI (kg/m²)</label>
-                  <div className="bmi-readonly">{bmi}</div>
-                </div>
-              </div>
-              <button
-                type="submit"
-                className="btn-primary btn-block"
-                disabled={loading}
-              >
-                {loading ? 'Saving…' : 'Update'}
-              </button>
-            </form>
-          )}
-
-          {/* New: Register form + Vitals below (all vitals optional) */}
-          {!selectedPatient && !visitId && !vitalsSaved && (
-            <form onSubmit={handleRegister} className="card form-grid">
-              <h3>New Patient</h3>
-              <div className="grid-2">
-                <div className="field">
-                  <label>Patient Name *</label>
-                  <input
-                    name="name"
-                    value={reg.name}
-                    onChange={handleRegChange}
-                    required
-                    placeholder="Full name"
-                  />
-                </div>
-                <div className="field">
-                  <label>Guardian Name</label>
-                  <input
-                    name="guardian_name"
-                    value={reg.guardian_name}
-                    onChange={handleRegChange}
-                    placeholder="Guardian"
-                  />
-                </div>
-              </div>
-              <div className="field">
-                <label>Age / DOB *</label>
-                <AgeDobInput
-                  mode={reg.dob_mode || 'age'}
-                  ageYears={reg.age_years}
-                  ageMonths={reg.age_months}
-                  dob={reg.dob}
-                  onModeChange={(mode) => setReg({ ...reg, dob_mode: mode })}
-                  onAgeChange={(years, months) =>
-                    setReg({ ...reg, age_years: years, age_months: months })
-                  }
-                  onDobChange={(dob) => setReg({ ...reg, dob: dob })}
-                />
-              </div>
-              <div className="field">
-                <label>Gender *</label>
-                <select
-                  name="gender"
-                  value={reg.gender}
-                  onChange={handleRegChange}
-                >
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
-              <div className="field">
-                <label>Contact Number *</label>
-                <input
-                  name="phone"
-                  type="tel"
-                  value={reg.phone}
-                  onChange={handleRegChange}
-                  required
-                  placeholder="10 digits"
-                  inputMode="numeric"
-                />
-              </div>
-              <div className="field">
-                <label>Address</label>
-                <input
-                  name="address"
-                  value={reg.address}
-                  onChange={handleRegChange}
-                  placeholder="Address"
-                />
-              </div>
-              <h3 className="vitals-subheading">Vitals</h3>
-              <div className="vitals-row">
-                <div className="field">
-                  <label>Temp (°F)</label>
-                  <input
-                    name="temp_f"
-                    type="number"
-                    step="0.1"
-                    value={vitals.temp_f}
-                    onChange={handleVitalsChange}
-                    placeholder="98.6"
-                    inputMode="decimal"
-                  />
-                </div>
-                <div className="field">
-                  <label>BP (mmHg)</label>
-                  <div className="bp-input">
-                    <input
-                      name="bp_systolic"
-                      type="number"
-                      value={vitals.bp_systolic}
-                      onChange={handleVitalsChange}
-                      placeholder="120"
-                    />
-                    <span className="bp-sep">/</span>
-                    <input
-                      name="bp_diastolic"
-                      type="number"
-                      value={vitals.bp_diastolic}
-                      onChange={handleVitalsChange}
-                      placeholder="80"
-                    />
-                  </div>
-                </div>
-                <div className="field">
-                  <label>PR (bpm)</label>
-                  <input
-                    name="pr"
-                    type="number"
-                    value={vitals.pr}
-                    onChange={handleVitalsChange}
-                    placeholder="72"
-                    inputMode="numeric"
-                  />
-                </div>
-                <div className="field">
-                  <label>SpO₂ (%)</label>
-                  <input
-                    name="spo2"
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={vitals.spo2}
-                    onChange={handleVitalsChange}
-                    placeholder="98"
-                    inputMode="numeric"
-                  />
-                </div>
-              </div>
-              <div className="vitals-row vitals-row-4">
-                <div className="field">
-                  <label>RBS (Random Blood Sugar)</label>
-                  <input
-                    name="sugar"
-                    type="number"
-                    step="0.1"
-                    value={vitals.sugar}
-                    onChange={handleVitalsChange}
-                    placeholder="100"
-                    inputMode="decimal"
-                  />
-                </div>
-                <div className="field">
-                  <label>Height (cm)</label>
-                  <input
-                    name="height_cm"
-                    type="number"
-                    step="0.1"
-                    value={vitals.height_cm}
-                    onChange={handleVitalsChange}
-                    placeholder="170"
-                    inputMode="decimal"
-                  />
-                </div>
-                <div className="field">
-                  <label>Weight (kg)</label>
-                  <input
-                    name="weight_kg"
-                    type="number"
-                    step="0.1"
-                    value={vitals.weight_kg}
-                    onChange={handleVitalsChange}
-                    placeholder="70"
-                    inputMode="decimal"
-                  />
-                </div>
-                <div className="field">
-                  <label>BMI (kg/m²)</label>
-                  <div className="bmi-readonly">{bmi}</div>
-                </div>
-              </div>
-              <button
-                type="submit"
-                className="btn-primary btn-block"
-                disabled={loading}
-              >
-                {loading ? 'Registering…' : 'Register'}
-              </button>
-            </form>
-          )}
-
-          {/* Vitals only — new patient when vitals save failed (retry) */}
-          {visitId && !vitalsSaved && (
-            <form onSubmit={handleSaveVitals} className="card vitals-grid">
-              <h3>Vitals</h3>
-              <div className="vitals-row">
-                <div className="field">
-                  <label>Temp (°F)</label>
-                  <input
-                    name="temp_f"
-                    type="number"
-                    step="0.1"
-                    value={vitals.temp_f}
-                    onChange={handleVitalsChange}
-                    placeholder="98.6"
-                    inputMode="decimal"
-                  />
-                </div>
-                <div className="field">
-                  <label>BP (mmHg)</label>
-                  <div className="bp-input">
-                    <input
-                      name="bp_systolic"
-                      type="number"
-                      value={vitals.bp_systolic}
-                      onChange={handleVitalsChange}
-                      placeholder="120"
-                    />
-                    <span className="bp-sep">/</span>
-                    <input
-                      name="bp_diastolic"
-                      type="number"
-                      value={vitals.bp_diastolic}
-                      onChange={handleVitalsChange}
-                      placeholder="80"
-                    />
-                  </div>
-                </div>
-                <div className="field">
-                  <label>PR (bpm)</label>
-                  <input
-                    name="pr"
-                    type="number"
-                    value={vitals.pr}
-                    onChange={handleVitalsChange}
-                    placeholder="72"
-                    inputMode="numeric"
-                  />
-                </div>
-                <div className="field">
-                  <label>SpO₂ (%)</label>
-                  <input
-                    name="spo2"
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={vitals.spo2}
-                    onChange={handleVitalsChange}
-                    placeholder="98"
-                    inputMode="numeric"
-                  />
-                </div>
-              </div>
-              <div className="vitals-row vitals-row-4">
-                <div className="field">
-                  <label>RBS (Random Blood Sugar)</label>
-                  <input
-                    name="sugar"
-                    type="number"
-                    step="0.1"
-                    value={vitals.sugar}
-                    onChange={handleVitalsChange}
-                    placeholder="100"
-                    inputMode="decimal"
-                  />
-                </div>
-                <div className="field">
-                  <label>Height (cm)</label>
-                  <input
-                    name="height_cm"
-                    type="number"
-                    step="0.1"
-                    value={vitals.height_cm}
-                    onChange={handleVitalsChange}
-                    placeholder="170"
-                    inputMode="decimal"
-                  />
-                </div>
-                <div className="field">
-                  <label>Weight (kg)</label>
-                  <input
-                    name="weight_kg"
-                    type="number"
-                    step="0.1"
-                    value={vitals.weight_kg}
-                    onChange={handleVitalsChange}
-                    placeholder="70"
-                    inputMode="decimal"
-                  />
-                </div>
-                <div className="field">
-                  <label>BMI (kg/m²)</label>
-                  <div className="bmi-readonly">{bmi}</div>
-                </div>
-              </div>
-              <button
-                type="submit"
-                className="btn-primary btn-block"
-                disabled={loading}
-              >
-                {loading ? 'Saving...' : 'Save Vitals'}
-              </button>
-            </form>
-          )}
-
-          {vitalsSaved && (
-            <section className="card done-card">
-              <h3>✓ Done</h3>
-              <p>Saved.</p>
               <button
                 type="button"
-                onClick={resetForNext}
-                className="btn-primary"
+                className="banner-close-btn"
+                onClick={() => setErrorMessage('')}
+                title="Dismiss"
               >
-                Register Next
+                <CloseIcon className="w-4 h-4" />
               </button>
-            </section>
+            </div>
           )}
+
+          {/* Demographics Card Component */}
+          <DemographicsCard
+            demographics={demographics}
+            onChange={handleDemographicsChange}
+            errors={validationErrors}
+            isEditMode={Boolean(selectedPatient)}
+            onResetToNew={handleResetToNew}
+          />
+
+          {/* Clinical Vitals & Visit Card Component */}
+          <VitalsCard
+            vitals={vitals}
+            onChange={handleVitalsChange}
+            errors={validationErrors}
+          />
         </main>
       </div>
+
+      {/* Sticky Bottom Action Footer Component */}
+      <ActionFooter
+        onSave={handleSave}
+        onMakePrescription={handleMakePrescription}
+        onMakeInvestigation={handleMakeInvestigation}
+        isSaving={isSaving}
+        hasActiveVisit={Boolean(activeVisitId)}
+        isEditMode={Boolean(selectedPatient)}
+      />
     </div>
   );
 }

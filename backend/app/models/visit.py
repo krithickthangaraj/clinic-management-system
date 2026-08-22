@@ -15,6 +15,7 @@ class Visit(Base):
     status = Column(String, default=VisitStatus.REGISTERED.value, nullable=False)
     
     # Consultation data
+    consultant_assigned = Column(String, nullable=True)  # Doctor or Staff nurse assigned at reception
     chief_complaints = Column(Text, nullable=True)  # JSON array of strings
     diagnosis = Column(String, nullable=True)
     advice = Column(Text, nullable=True)

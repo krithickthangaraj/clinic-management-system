@@ -15,6 +15,7 @@ from app.services.patient_service import generate_visit_number
 router = APIRouter()
 
 
+@router.post("", response_model=VisitResponse, status_code=status.HTTP_201_CREATED)
 @router.post("/", response_model=VisitResponse, status_code=status.HTTP_201_CREATED)
 async def create_visit(
     visit_data: VisitCreate,
@@ -44,6 +45,7 @@ async def create_visit(
     return VisitResponse.model_validate(visit)
 
 
+@router.get("", response_model=List[VisitResponse])
 @router.get("/", response_model=List[VisitResponse])
 async def list_visits(
     status_filter: str = None,

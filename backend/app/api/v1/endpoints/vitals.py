@@ -11,6 +11,7 @@ from app.schemas.vitals import VitalsCreate, VitalsResponse, VitalsUpdate
 router = APIRouter()
 
 
+@router.post("", response_model=VitalsResponse, status_code=status.HTTP_201_CREATED)
 @router.post("/", response_model=VitalsResponse, status_code=status.HTTP_201_CREATED)
 async def create_vitals(
     vitals_data: VitalsCreate,
