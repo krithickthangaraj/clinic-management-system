@@ -54,6 +54,42 @@ class VisitResponse(BaseModel):
     patient_age_months: Optional[int] = None
     patient_gender: Optional[str] = None
     patient_phone: Optional[str] = None
+    consultant_assigned: Optional[str] = None
 
     class Config:
         from_attributes = True
+
+
+class DoctorDashboardKPIs(BaseModel):
+    total_patients: int = 0
+    waiting: int = 0
+    followup: int = 0
+    reports_pending: int = 0
+    not_attended: int = 0
+    completed: int = 0
+
+
+class QueuePatientItem(BaseModel):
+    queue_no: int
+    visit_id: int
+    visit_number: str
+    patient_id: str
+    numeric_patient_id: int
+    patient_name: str
+    age_sex: str  # e.g., "44 Yrs / M"
+    age: Optional[int] = None
+    gender: Optional[str] = None
+    category: str = "OPD"  # General, OPD, Follow-up, Emergency, Review
+    waiting_time: str = "0 min"  # e.g., "20 min"
+    waiting_minutes: int = 0
+    remarks: Optional[str] = None
+    status: str
+    consultant_assigned: Optional[str] = None
+    created_at: datetime
+
+
+class DoctorDashboardResponse(BaseModel):
+    kpis: DoctorDashboardKPIs
+    queue: List[QueuePatientItem]
+    date: str
+

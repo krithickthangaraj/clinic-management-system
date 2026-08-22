@@ -47,6 +47,9 @@ except Exception as e:
 echo "🔄 Running database migrations..."
 alembic upgrade head
 
+# Free port 8000 if occupied
+lsof -ti:8000 | xargs kill -9 2>/dev/null || true
+
 # Start server
 echo "🌟 Starting FastAPI server..."
 echo "   API will be available at: http://localhost:8000"

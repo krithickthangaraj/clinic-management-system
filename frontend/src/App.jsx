@@ -12,6 +12,7 @@ import AdminConfig from './pages/admin/AdminConfig';
 import MedicineAdmin from './pages/admin/MedicineAdmin';
 import Dashboard from './pages/Dashboard';
 import Consultation from './pages/doctor/Consultation';
+import DoctorDashboard from './pages/doctor/DoctorDashboard';
 import DoctorQueue from './pages/doctor/DoctorQueue';
 import TemplateEdit from './pages/doctor/TemplateEdit';
 import PendingTests from './pages/lab/PendingTests';
@@ -49,9 +50,7 @@ function App() {
               path="/doctor/queue"
               element={
                 <ProtectedRoute allowedRoles={['doctor', 'admin']}>
-                  <AppLayout>
-                    <DoctorQueue />
-                  </AppLayout>
+                  <DoctorDashboard />
                 </ProtectedRoute>
               }
             />

@@ -2,17 +2,34 @@ import json
 from datetime import datetime, date, time
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_role
 from app.models.user import User
 from app.models.enums import UserRole, VisitStatus
 from app.models.patient import Patient
 from app.models.visit import Visit
-from app.schemas.visit import VisitCreate, VisitResponse, VisitUpdate
+from app.schemas.visit import (
+    VisitCreate,
+    VisitResponse,
+    VisitUpdate,
+    DoctorDashboardResponse,
+)
 from app.services.patient_service import generate_visit_number
+from app.api.v1.endpoints.doctor import get_doctor_dashboard
 
 router = APIRouter()
+
+
+@router.get("/doctor-dashboard", response_model=DoctorDashboardResponse)
+async def get_visits_doctor_dashboard(
+    consultant: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role([UserRole.DOCTOR, UserRole.ADMIN])),
+):
+    """Alias for /api/v1/doctor/dashboard"""
+    return await get_doctor_dashboard(consultant=consultant, db=db, current_user=current_user)
+
 
 
 @router.post("", response_model=VisitResponse, status_code=status.HTTP_201_CREATED)
