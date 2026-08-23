@@ -27,21 +27,31 @@ build/
 *.swo
 *~
 
-# Node
+# Node & Framework Builds
 node_modules/
+frontend/dist/
+frontend/build/
+landing-page/.next/
+landing-page/out/
+landing-page/node_modules/
+.next/
+dist/
+build/
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# Build
-frontend/dist/
-frontend/build/
-*.log
-
-# OS
+# OS & Editor
 .DS_Store
 Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
 
 # Alembic
 alembic/versions/*.pyc
+
