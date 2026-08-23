@@ -272,20 +272,39 @@ export default function Consultation() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-900 antialiased">
-      {/* Printable Prescription Modal */}
+      {/* Printable Prescription Modal & Review Screen */}
       {showPrescription && (
-        <PrescriptionView
-          visit={visit}
-          patient={patient}
-          vitals={vitals}
-          medicines={medicines}
-          advice={planAndBilling.advice}
-          followUpDate={planAndBilling.followup_date}
-          onClose={() => {
-            setShowPrescription(false);
-            navigate('/doctor/queue');
-          }}
-        />
+        <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-y-auto print:p-0 print:bg-white print:static print:overflow-visible">
+          <div className="w-full max-w-4xl max-h-[95vh] overflow-y-auto print:max-h-none print:overflow-visible bg-white rounded-2xl shadow-2xl print:shadow-none print:rounded-none p-4 sm:p-6 print:p-0">
+            <PrescriptionView
+              visitId={visitId}
+              visit={visit}
+              patient={patient}
+              vitals={vitals}
+              medicines={medicines}
+              chiefComplaints={assessment?.complaints || []}
+              diagnosis={assessment?.diagnosis || []}
+              history={history}
+              examination={assessment?.examination}
+              labReportsReviewed={planAndBilling?.lab_reports_reviewed}
+              orderedTests={(planAndBilling?.investigations_next_visit || []).map((t) => ({ test_name: t }))}
+              procedure={planAndBilling?.procedure}
+              referral={planAndBilling?.referral}
+              advice={planAndBilling?.advice}
+              followUpDate={planAndBilling?.followup_date}
+              totalAmount={totalAmount}
+              doctorFee={planAndBilling?.doctor_fee}
+              doctorName={visit?.consultant_assigned || 'Consultant Physician'}
+              onBack={() => setShowPrescription(false)}
+              onPrintedAndCompleted={() => {
+                setSuccessToast('Prescription printed and visit completed.');
+                setTimeout(() => {
+                  navigate('/doctor/queue');
+                }, 800);
+              }}
+            />
+          </div>
+        </div>
       )}
 
       {/* Main Form Content Container (Full Width Rigid Stack) */}

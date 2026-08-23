@@ -301,6 +301,7 @@ export default function PatientQueueTable({
                       <WaitingTimeBadge
                         minutes={patient.waiting_minutes}
                         timeString={patient.waiting_time}
+                        status={patient.status}
                       />
                     </td>
 

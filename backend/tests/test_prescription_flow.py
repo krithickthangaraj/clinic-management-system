@@ -1,16 +1,19 @@
 import unittest
+import asyncio
 import json
 from datetime import datetime, date
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+
 from app.core.database import Base
 from app.models.user import User
-from app.models.enums import UserRole, VisitStatus
+from app.models.enums import UserRole, VisitStatus, TestStatus
 from app.models.patient import Patient
 from app.models.visit import Visit
 from app.models.prescription import Prescription, PrescriptionDrug
 from app.models.visit_relations import VisitPayment
-from app.models.patient_history import PatientAllergyHistory, PatientPastHistory
+from app.models.test import Test
+from app.models.patient_history import PatientAllergyHistory, PatientPastHistory, PatientSurgicalHistory, PatientFamilyHistory
 from app.schemas.consultation import (
     FullPrescriptionPayload,
     FullPrescriptionResponse,
@@ -19,6 +22,7 @@ from app.schemas.consultation import (
     ClinicalAssessmentPayload,
     BillingAndPlanPayload,
 )
+from app.api.v1.endpoints.prescriptions import save_full_prescription, get_full_prescription
 
 
 class TestFullPrescriptionFlow(unittest.TestCase):
@@ -66,13 +70,17 @@ class TestFullPrescriptionFlow(unittest.TestCase):
     def tearDown(self):
         self.db.close()
 
-    def test_save_and_retrieve_full_prescription_with_sno_and_brand(self):
+    def test_save_and_retrieve_full_prescription_e2e(self):
         """
-        Verify that saving and fetching prescription correctly persists
-        s_no, brand_name, auto-calculated quantities, allergies, complaints,
-        and billing amounts without any UndefinedColumn errors.
+        Complete End-to-End Test:
+        - Save full prescription via save_full_prescription endpoint handler
+        - Verify database records for Prescription, Drugs, History, Ordered Tests, and Billing
+        - Retrieve via get_full_prescription endpoint handler
+        - Assert full round-trip integrity
         """
-        # 1. Prepare Full Prescription Payload
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
         drug1 = RXDrugItem(
             s_no=1,
             brand_name="Dolo 650",
@@ -100,108 +108,89 @@ class TestFullPrescriptionFlow(unittest.TestCase):
             doctor_id=self.doctor.id,
             consultant_name="Dr. T.S.Jeyagowthaman",
             history=PatientHistoryPayload(
-                past_history=["Type 2 Diabetes"],
-                allergy_history=["NSAIDS", "Sea Foods"],
-                surgical_history=["Appendectomy"],
+                allergy_history=["Penicillin", "Sulfa drugs"],
+                past_history=["Hypertension 2Y"],
+                surgical_history=["Appendectomy (2018)"],
+                family_history=["Diabetes Mellitus"],
             ),
             assessment=ClinicalAssessmentPayload(
-                complaints=[{"complaint": "High fever with chills", "duration": "3 days"}],
-                diagnosis=["Acute Bronchitis", "Viral Pyrexia"],
-                examination="Chest bilateral rhonchi, Throat congested",
+                complaints=[
+                    {"complaint": "High grade fever", "duration": "3 Days"},
+                    {"complaint": "Severe sore throat", "duration": "2 Days"},
+                ],
+                diagnosis=["Acute Follicular Tonsillitis", "Pyrexia of Unknown Origin"],
+                examination="Throat congested, tonsils enlarged with exudates. Chest clear bilaterally.",
             ),
             medicines=[drug1, drug2],
             plan_and_billing=BillingAndPlanPayload(
-                advice="Drink warm water, take rest",
+                lab_reports_reviewed="CBC reviewed - leukocytosis noted (WBC 14,200).",
+                investigations_next_visit=["Complete Blood Count (CBC)", "Throat Swab Culture"],
+                procedure="Nebulization",
+                referral="ENT Specialist Review",
+                advice="Warm saline gargle 3 times a day. Steam inhalation twice daily. Adequate hydration.",
                 for_followup=True,
-                followup_duration=7,
+                followup_duration=5,
                 followup_unit="Days",
-                doctor_fee=350.0,
-                dressing_fee=50.0,
-                procedure_fee=0.0,
-                total_amount=400.0,
+                followup_date="2026-08-28",
+                doctor_fee=500.0,
+                dressing_fee=150.0,
+                procedure_fee=200.0,
+                total_amount=850.0,
                 payment_mode="Cash",
                 payment_status="paid",
             ),
             status_action="completed",
+            print_requested=True,
         )
 
-        # 2. Simulate Save Full Prescription logic
-        visit = self.db.query(Visit).filter(Visit.id == payload.visit_id).first()
-        self.assertIsNotNone(visit)
-
-        # Update visit fields
-        visit.diagnosis = ", ".join(payload.assessment.diagnosis)
-        visit.chief_complaints = json.dumps(payload.assessment.complaints)
-        visit.advice = payload.plan_and_billing.advice
-        visit.status = VisitStatus.COMPLETED.value
-
-        # Create Prescription and drugs
-        prescription = Prescription(
-            visit_id=visit.id,
-            doctor_id=self.doctor.id,
+        # 1. Execute Save
+        save_response = loop.run_until_complete(
+            save_full_prescription(payload=payload, db=self.db, current_user=self.doctor)
         )
-        self.db.add(prescription)
-        self.db.flush()
 
-        for d in payload.medicines:
-            new_drug = PrescriptionDrug(
-                prescription_id=prescription.id,
-                s_no=d.s_no,
-                brand_name=d.brand_name,
-                drug_name=d.drug_name,
-                dosage=d.dosage,
-                frequency=d.frequency,
-                instructions=d.instructions,
-                number_of_days=d.days,
-                quantity=d.quantity,
-            )
-            self.db.add(new_drug)
+        self.assertIsNotNone(save_response)
+        self.assertEqual(save_response.status, "completed")
+        self.assertEqual(len(save_response.medicines), 2)
+        self.assertIsNotNone(save_response.printed_at)
 
-        # Save history tags
-        for a in payload.history.allergy_history:
-            self.db.add(PatientAllergyHistory(patient_id=self.patient.id, value=a))
+        # 2. Verify Database Records
+        saved_prescription = self.db.query(Prescription).filter(Prescription.visit_id == self.visit.id).first()
+        self.assertIsNotNone(saved_prescription)
 
-        # Save payment
-        payment = VisitPayment(
-            visit_id=visit.id,
-            doctor_fee=payload.plan_and_billing.doctor_fee,
-            total=payload.plan_and_billing.total_amount,
-            payment_status=payload.plan_and_billing.payment_status,
-        )
-        self.db.add(payment)
-        self.db.commit()
-
-        # 3. Retrieve and assert all fields including s_no and brand_name
-        saved_drugs = self.db.query(PrescriptionDrug).filter(
-            PrescriptionDrug.prescription_id == prescription.id
-        ).order_by(PrescriptionDrug.s_no.asc()).all()
-
+        saved_drugs = self.db.query(PrescriptionDrug).filter(PrescriptionDrug.prescription_id == saved_prescription.id).all()
         self.assertEqual(len(saved_drugs), 2)
-        
-        # Verify 1st drug
-        self.assertEqual(saved_drugs[0].s_no, 1)
         self.assertEqual(saved_drugs[0].brand_name, "Dolo 650")
-        self.assertEqual(saved_drugs[0].drug_name, "Paracetamol 650mg")
-        self.assertEqual(saved_drugs[0].quantity, 15)
-
-        # Verify 2nd drug
-        self.assertEqual(saved_drugs[1].s_no, 2)
         self.assertEqual(saved_drugs[1].brand_name, "Augmentin 625")
-        self.assertEqual(saved_drugs[1].drug_name, "Amoxicillin + Clavulanic Acid 625mg")
-        self.assertEqual(saved_drugs[1].quantity, 10)
 
-        # Verify visit status and complaints
-        self.assertEqual(visit.status, VisitStatus.COMPLETED.value)
-        complaints_parsed = json.loads(visit.chief_complaints)
-        self.assertEqual(complaints_parsed[0]["complaint"], "High fever with chills")
+        saved_tests = self.db.query(Test).filter(Test.visit_id == self.visit.id).all()
+        self.assertEqual(len(saved_tests), 2)
+        test_names = [t.test_name for t in saved_tests]
+        self.assertIn("Complete Blood Count (CBC)", test_names)
+        self.assertIn("Throat Swab Culture", test_names)
 
-        # Verify allergies
-        allergies = self.db.query(PatientAllergyHistory).filter(
-            PatientAllergyHistory.patient_id == self.patient.id
-        ).all()
-        allergy_names = [a.value for a in allergies]
-        self.assertIn("NSAIDS", allergy_names)
-        self.assertIn("Sea Foods", allergy_names)
+        saved_payment = self.db.query(VisitPayment).filter(VisitPayment.visit_id == self.visit.id).first()
+        self.assertIsNotNone(saved_payment)
+        self.assertEqual(saved_payment.total, 850.0)
+
+        # 3. Execute Get Full Prescription
+        get_response = loop.run_until_complete(
+            get_full_prescription(visit_id=self.visit.id, db=self.db, current_user=self.doctor)
+        )
+
+        self.assertIsNotNone(get_response)
+        self.assertEqual(get_response.visit_id, self.visit.id)
+        self.assertEqual(get_response.status, "completed")
+        self.assertEqual(len(get_response.medicines), 2)
+        self.assertEqual(get_response.medicines[0].drug_name, "Paracetamol 650mg")
+        self.assertEqual(get_response.medicines[0].brand_name, "Dolo 650")
+        self.assertEqual(len(get_response.history.allergy_history), 2)
+        self.assertEqual(len(get_response.history.past_history), 1)
+        self.assertEqual(len(get_response.history.surgical_history), 1)
+        self.assertEqual(len(get_response.history.family_history), 1)
+        self.assertEqual(len(get_response.plan_and_billing.investigations_next_visit), 2)
+        self.assertEqual(get_response.plan_and_billing.total_amount, 850.0)
+
+        loop.close()
 
 
 if __name__ == "__main__":

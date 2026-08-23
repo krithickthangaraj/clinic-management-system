@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { masterDataService } from '../../services/masterDataService';
 import MasterDataModal from './MasterDataModal';
 
@@ -7,7 +7,7 @@ import MasterDataModal from './MasterDataModal';
  * Features:
  * - Top Row: Label & Action Buttons (Colored Add button, sleek Manage button)
  * - Middle Row: Text input or textarea
- * - Bottom Row: 1-Row Ultra-Thin Suggestion Chips (Filtered dynamically)
+ * - Bottom Row: 1-Row Ultra-Thin Suggestion Chips (Filtered dynamically via useMemo - zero render loops)
  */
 export default function SmartField({
   category = 'complaints',
@@ -22,7 +22,6 @@ export default function SmartField({
   autoSaveToMaster = true,
 }) {
   const [suggestions, setSuggestions] = useState([]);
-  const [filtered, setFiltered] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const containerRef = useRef(null);
 
@@ -35,19 +34,30 @@ export default function SmartField({
     loadSuggestions();
   }, [category]);
 
-  // Dynamically filter out already-recorded/excluded tags and search query
-  useEffect(() => {
-    const available = suggestions.filter(
-      (s) => !excludeTags.some((ex) => (typeof ex === 'string' ? ex : ex.complaint || '').toLowerCase() === s.toLowerCase())
+  // Derive filtered suggestions directly and synchronously via useMemo
+  // Use a stringified signature for excludeTags to guarantee zero infinite setState loops
+  const excludeSignature = (excludeTags || [])
+    .map((ex) => (typeof ex === 'string' ? ex : ex?.complaint || ex?.test_name || ''))
+    .join('|')
+    .toLowerCase();
+
+  const filtered = useMemo(() => {
+    const excludeSet = new Set(
+      (excludeTags || []).map((ex) =>
+        (typeof ex === 'string' ? ex : ex?.complaint || ex?.test_name || '').toLowerCase()
+      )
     );
 
-    if (value.trim()) {
+    const available = (suggestions || []).filter(
+      (s) => !excludeSet.has(s.toLowerCase())
+    );
+
+    if (value && typeof value === 'string' && value.trim()) {
       const q = value.toLowerCase().trim();
-      setFiltered(available.filter((s) => s.toLowerCase().includes(q)));
-    } else {
-      setFiltered(available.slice(0, 12));
+      return available.filter((s) => s.toLowerCase().includes(q));
     }
-  }, [suggestions, excludeTags, value]);
+    return available.slice(0, 12);
+  }, [suggestions, excludeSignature, value]);
 
   const handleInputChange = (text) => {
     onChange(text);
@@ -59,7 +69,7 @@ export default function SmartField({
   };
 
   const handleAddDirect = () => {
-    if (value.trim()) {
+    if (value && typeof value === 'string' && value.trim()) {
       const trimmed = value.trim();
       if (autoSaveToMaster) {
         masterDataService.addItem(category, trimmed);
@@ -127,20 +137,27 @@ export default function SmartField({
         </div>
       </div>
 
-      {/* 2. MIDDLE ROW: The Input / Textarea */}
+      {/* 2. MIDDLE ROW: Input Field */}
       {isTextarea ? (
         <textarea
-          className="w-full min-h-[80px] h-20 px-3.5 py-2 bg-slate-50/70 hover:bg-slate-50 border border-slate-200/80 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 shadow-xs transition-all resize-y"
-          placeholder={placeholder}
+          rows="2"
+          className="w-full px-3 py-1.5 bg-slate-50/70 hover:bg-slate-50 border border-slate-200/80 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 shadow-2xs transition-all resize-none"
+          placeholder={placeholder || `Enter ${label.toLowerCase()}...`}
           value={value}
           onChange={(e) => handleInputChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              handleAddDirect();
+            }
+          }}
           data-testid={testId}
         />
       ) : (
         <input
           type="text"
-          className="w-full h-10 px-3.5 bg-slate-50/70 hover:bg-slate-50 border border-slate-200/80 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 shadow-xs transition-all"
-          placeholder={placeholder}
+          className="w-full h-8 px-3 bg-slate-50/70 hover:bg-slate-50 border border-slate-200/80 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 shadow-2xs transition-all"
+          placeholder={placeholder || `Enter ${label.toLowerCase()}...`}
           value={value}
           onChange={(e) => handleInputChange(e.target.value)}
           onKeyDown={(e) => {
@@ -153,11 +170,11 @@ export default function SmartField({
         />
       )}
 
-      {/* 3. BOTTOM ROW: Ultra-Thin, Elegant Suggestions Bar */}
+      {/* 3. BOTTOM ROW: Ultra-Thin Suggestion Chips (Whisper-Light Green on hover) */}
       {filtered.length > 0 && (
         <div
-          className="flex items-center gap-1.5 overflow-x-auto mt-1 pb-1 ultra-thin-scrollbar"
-          data-testid={`suggestions-row-${category}`}
+          className="flex overflow-x-auto items-center gap-1.5 mt-1 pb-0.5 ultra-thin-scrollbar"
+          data-testid={`suggestions-bar-${category}`}
         >
           {filtered.map((item, idx) => (
             <button
@@ -180,7 +197,7 @@ export default function SmartField({
                 <line x1="12" y1="5" x2="12" y2="19" />
                 <line x1="5" y1="12" x2="19" y2="12" />
               </svg>
-              <span className="truncate max-w-[160px]">{item}</span>
+              <span className="truncate max-w-[180px]">{item}</span>
             </button>
           ))}
         </div>
@@ -190,7 +207,7 @@ export default function SmartField({
       <MasterDataModal
         isOpen={isModalOpen}
         category={category}
-        title={label}
+        title={`${label} Presets`}
         onClose={() => setIsModalOpen(false)}
         onDataUpdated={loadSuggestions}
       />

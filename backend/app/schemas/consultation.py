@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional, Any, Dict
+from typing import List, Optional, Any, Dict, Union
 from datetime import date, datetime
 from enum import Enum
 
@@ -30,11 +30,11 @@ class RXDrugItem(BaseModel):
     s_no: Optional[int] = 1
     brand_name: Optional[str] = None
     drug_name: str
-    dosage: str = "1 Tab"
-    frequency: str = "TDS (1-1-1)"
-    days: int = 5
-    instructions: str = "After food"
-    quantity: int = 15
+    dosage: Optional[str] = "1 Tab"
+    frequency: Optional[str] = "TDS (1-1-1)"
+    days: Optional[int] = 5
+    instructions: Optional[str] = "After food"
+    quantity: Optional[int] = 15
 
     class Config:
         from_attributes = True
@@ -50,15 +50,23 @@ class PatientHistoryPayload(BaseModel):
     family_history: List[str] = Field(default_factory=list)
     surgical_history: List[str] = Field(default_factory=list)
 
+    class Config:
+        from_attributes = True
+
 
 # ---------------------------------------------------------------------------
 # 3. Clinical Assessment Schema
 # ---------------------------------------------------------------------------
 class ClinicalAssessmentPayload(BaseModel):
-    complaints: List[Dict[str, Any]] = Field(default_factory=list)
+    complaints: List[Any] = Field(default_factory=list)
     duration: Optional[str] = None
+    duration_value: Optional[Any] = None
+    duration_unit: Optional[str] = None
     diagnosis: List[str] = Field(default_factory=list)
     examination: Optional[str] = None
+
+    class Config:
+        from_attributes = True
 
 
 # ---------------------------------------------------------------------------
@@ -74,17 +82,20 @@ class BillingAndPlanPayload(BaseModel):
     
     # Follow-up
     for_followup: bool = False
-    followup_duration: Optional[int] = None
-    followup_unit: str = "Days"
-    followup_date: Optional[date] = None
+    followup_duration: Optional[Any] = None
+    followup_unit: Optional[str] = "Days"
+    followup_date: Optional[Any] = None  # String, date or None
     
     # Billing Breakdown
-    doctor_fee: float = 0.0
-    dressing_fee: float = 0.0
-    procedure_fee: float = 0.0
-    total_amount: float = 0.0
-    payment_mode: str = "Cash"
-    payment_status: str = "paid"
+    doctor_fee: Optional[float] = 0.0
+    dressing_fee: Optional[float] = 0.0
+    procedure_fee: Optional[float] = 0.0
+    total_amount: Optional[float] = 0.0
+    payment_mode: Optional[str] = "Cash"
+    payment_status: Optional[str] = "paid"
+
+    class Config:
+        from_attributes = True
 
 
 # ---------------------------------------------------------------------------
@@ -92,7 +103,7 @@ class BillingAndPlanPayload(BaseModel):
 # ---------------------------------------------------------------------------
 class FullPrescriptionPayload(BaseModel):
     visit_id: int
-    patient_id: int
+    patient_id: Optional[int] = None
     doctor_id: Optional[int] = None
     consultant_name: Optional[str] = None
     
@@ -102,8 +113,11 @@ class FullPrescriptionPayload(BaseModel):
     medicines: List[RXDrugItem] = Field(default_factory=list)
     plan_and_billing: BillingAndPlanPayload = Field(default_factory=BillingAndPlanPayload)
     
-    status_action: str = "completed"  # "save" | "completed" | "followup" | "reminder" | "pending" | "not_visited"
-    print_requested: bool = False
+    status_action: Optional[str] = "completed"
+    print_requested: Optional[bool] = False
+
+    class Config:
+        from_attributes = True
 
 
 # ---------------------------------------------------------------------------
@@ -112,17 +126,17 @@ class FullPrescriptionPayload(BaseModel):
 class FullPrescriptionResponse(BaseModel):
     prescription_id: Optional[int] = None
     visit_id: int
-    patient_id: int
-    visit_number: str
-    created_at: datetime
+    patient_id: Optional[int] = None
+    visit_number: Optional[str] = ""
+    created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     printed_at: Optional[datetime] = None
     
-    history: PatientHistoryPayload
-    assessment: ClinicalAssessmentPayload
-    medicines: List[RXDrugItem]
-    plan_and_billing: BillingAndPlanPayload
-    status: str
+    history: Optional[PatientHistoryPayload] = Field(default_factory=PatientHistoryPayload)
+    assessment: Optional[ClinicalAssessmentPayload] = Field(default_factory=ClinicalAssessmentPayload)
+    medicines: List[RXDrugItem] = Field(default_factory=list)
+    plan_and_billing: Optional[BillingAndPlanPayload] = Field(default_factory=BillingAndPlanPayload)
+    status: Optional[str] = "completed"
 
     class Config:
         from_attributes = True
