@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import List
+from sqlalchemy import func
+from typing import List, Optional
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_role
 from app.models.user import User
@@ -581,26 +582,37 @@ async def delete_medicine_dosage(item_id: int, db: Session = Depends(get_db), cu
 
 
 # =============================================================================
-# Medicine Master Prescription Templates (Magic Auto-Fill)
+# Medicine Master Prescription Templates (Magic Auto-Fill & Admin Management)
 # =============================================================================
 
 @router.get("/medicines", response_model=List[MedicineMasterResponse])
 async def list_medicine_master(
-    search: str = None,
+    search: Optional[str] = None,
+    category: Optional[str] = None,
+    include_inactive: bool = False,
+    skip: int = 0,
+    limit: int = 200,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
-    Search Medicine Master for prescription auto-fill.
-    Matches across brand_name and generic drug_name.
+    Search & list Medicine Master prescription templates.
+    Supports filtering by search query (brand/drug), category, and active status.
     """
-    query = db.query(MedicineMaster).filter(MedicineMaster.is_active == True)
+    query = db.query(MedicineMaster)
+    if not include_inactive:
+        query = query.filter(MedicineMaster.is_active == True)
+
+    if category and category.strip() and category != "all":
+        query = query.filter(MedicineMaster.category.ilike(category.strip()))
+
     if search and search.strip():
         term = f"%{search.strip()}%"
         query = query.filter(
             (MedicineMaster.brand_name.ilike(term)) | (MedicineMaster.drug_name.ilike(term))
         )
-    items = query.order_by(MedicineMaster.brand_name.asc()).limit(60).all()
+
+    items = query.order_by(MedicineMaster.brand_name.asc()).offset(skip).limit(limit).all()
     return items
 
 
@@ -608,11 +620,10 @@ async def list_medicine_master(
 async def create_or_update_medicine_master(
     data: MedicineMasterCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role([UserRole.DOCTOR, UserRole.ADMIN])),
+    current_user: User = Depends(require_role([UserRole.DOCTOR, UserRole.ADMIN, UserRole.PHARMACY])),
 ):
     """
-    Inline 'Save to Master' action:
-    Creates a new MedicineMaster record or updates defaults if brand_name exists.
+    Create a new MedicineMaster template or update defaults if active brand_name exists.
     """
     brand = (data.brand_name or "").strip()
     drug = (data.drug_name or "").strip()
@@ -631,6 +642,7 @@ async def create_or_update_medicine_master(
         existing.default_frequency = data.default_frequency or existing.default_frequency
         existing.default_days = data.default_days or existing.default_days
         existing.default_instructions = data.default_instructions if data.default_instructions is not None else existing.default_instructions
+        existing.updated_at = func.now()
         db.commit()
         db.refresh(existing)
         return existing
@@ -643,6 +655,7 @@ async def create_or_update_medicine_master(
         default_frequency=data.default_frequency or "TDS (1-1-1)",
         default_days=data.default_days or 3,
         default_instructions=data.default_instructions or "",
+        is_active=True,
     )
     db.add(item)
     db.commit()
@@ -656,9 +669,82 @@ async def get_medicine_master_item(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    item = db.query(MedicineMaster).filter(MedicineMaster.id == item_id, MedicineMaster.is_active == True).first()
+    """Fetch single master medicine by ID"""
+    item = db.query(MedicineMaster).filter(MedicineMaster.id == item_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Medicine template not found")
     return item
+
+
+@router.put("/medicines/{item_id}", response_model=MedicineMasterResponse)
+@router.patch("/medicines/{item_id}", response_model=MedicineMasterResponse)
+async def update_medicine_master_item(
+    item_id: int,
+    data: MedicineMasterUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role([UserRole.DOCTOR, UserRole.ADMIN, UserRole.PHARMACY])),
+):
+    """
+    Update an existing master template (brand name, drug name, dosage, frequency, days, instructions).
+    """
+    item = db.query(MedicineMaster).filter(MedicineMaster.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Medicine template not found")
+
+    update_dict = data.model_dump(exclude_unset=True)
+    if "brand_name" in update_dict and update_dict["brand_name"]:
+        brand_clean = update_dict["brand_name"].strip()
+        # Check duplicate
+        dup = db.query(MedicineMaster).filter(
+            MedicineMaster.id != item_id,
+            MedicineMaster.brand_name.ilike(brand_clean),
+            MedicineMaster.is_active == True,
+        ).first()
+        if dup:
+            raise HTTPException(status_code=400, detail="Another active medicine with this brand name already exists")
+        item.brand_name = brand_clean
+
+    if "drug_name" in update_dict and update_dict["drug_name"]:
+        item.drug_name = update_dict["drug_name"].strip()
+
+    if "category" in update_dict and update_dict["category"] is not None:
+        item.category = update_dict["category"]
+
+    if "default_dosage" in update_dict and update_dict["default_dosage"] is not None:
+        item.default_dosage = update_dict["default_dosage"]
+
+    if "default_frequency" in update_dict and update_dict["default_frequency"] is not None:
+        item.default_frequency = update_dict["default_frequency"]
+
+    if "default_days" in update_dict and update_dict["default_days"] is not None:
+        item.default_days = update_dict["default_days"]
+
+    if "default_instructions" in update_dict and update_dict["default_instructions"] is not None:
+        item.default_instructions = update_dict["default_instructions"]
+
+    item.updated_at = func.now()
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+@router.delete("/medicines/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_medicine_master_item(
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role([UserRole.DOCTOR, UserRole.ADMIN, UserRole.PHARMACY])),
+):
+    """
+    Soft-delete a medicine template (sets is_active = False).
+    Preserves historical patient prescription references while removing it from active search.
+    """
+    item = db.query(MedicineMaster).filter(MedicineMaster.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Medicine template not found")
+
+    item.is_active = False
+    item.updated_at = func.now()
+    db.commit()
+
 
 

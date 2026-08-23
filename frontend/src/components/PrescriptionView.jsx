@@ -364,14 +364,14 @@ export default function PrescriptionView({
           <table className="w-full text-left border-collapse border border-slate-300 text-xs">
             <thead>
               <tr className="bg-slate-100 print:bg-slate-100/60 border-b border-slate-300 font-bold text-slate-900 text-[10.5px] uppercase tracking-wider">
-                <th className="py-1 px-1.5 w-8 text-center border-r border-slate-300">#</th>
-                <th className="py-1 px-2 w-28 border-r border-slate-300">Brand</th>
+                <th className="py-1 px-1.5 w-10 text-center border-r border-slate-300">S.No</th>
+                <th className="py-1 px-2 w-32 border-r border-slate-300">Brand Name</th>
                 <th className="py-1 px-2 border-r border-slate-300">Drug Name</th>
                 <th className="py-1 px-2 w-20 border-r border-slate-300">Dosage</th>
                 <th className="py-1 px-2 w-28 border-r border-slate-300">Frequency</th>
                 <th className="py-1 px-1.5 w-14 text-center border-r border-slate-300">Days</th>
                 <th className="py-1 px-2 w-28 border-r border-slate-300">Instructions</th>
-                <th className="py-1 px-1.5 w-12 text-center">Qty</th>
+                <th className="py-1 px-1.5 w-16 text-center">Quantity</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 text-slate-900 font-medium">

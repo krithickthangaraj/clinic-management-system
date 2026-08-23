@@ -108,7 +108,12 @@ export const medicineService = {
     await api.delete(`/master/meds/dosages/${id}`);
   },
 
-  // Medicine Master with Prescription Templates (Magic Auto-Fill)
+  // Medicine Master Clinical Templates (Magic Auto-Fill & Admin CRUD)
+  async listMedicineMaster(params = {}) {
+    const response = await api.get('/master/medicines', { params });
+    return Array.isArray(response.data) ? response.data : [];
+  },
+
   async searchMedicineMaster(q = '') {
     try {
       const response = await api.get('/master/medicines', {
@@ -120,9 +125,28 @@ export const medicineService = {
     }
   },
 
+  async getMedicineMaster(id) {
+    const response = await api.get(`/master/medicines/${id}`);
+    return response.data;
+  },
+
+  async createMedicineMaster(data) {
+    const response = await api.post('/master/medicines', data);
+    return response.data;
+  },
+
   async saveMedicineMaster(data) {
     const response = await api.post('/master/medicines', data);
     return response.data;
+  },
+
+  async updateMedicineMaster(id, data) {
+    const response = await api.put(`/master/medicines/${id}`, data);
+    return response.data;
+  },
+
+  async deleteMedicineMaster(id) {
+    await api.delete(`/master/medicines/${id}`);
   },
 };
 

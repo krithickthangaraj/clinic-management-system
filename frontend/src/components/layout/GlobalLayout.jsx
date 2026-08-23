@@ -19,6 +19,7 @@ const ROLE_NAV_CONFIG = {
     { label: 'Doctor Desk', path: '/doctor/queue' },
     { label: 'Registration', path: '/reception/register' },
     { label: 'Pharmacy', path: '/pharmacy' },
+    { label: 'Medicine Master', path: '/admin/medicines' },
     { label: 'Home', path: '/' },
   ],
   reception: [
@@ -28,6 +29,7 @@ const ROLE_NAV_CONFIG = {
   ],
   pharmacy: [
     { label: 'Pharmacy', path: '/pharmacy' },
+    { label: 'Medicine Master', path: '/admin/medicines' },
     { label: 'Home', path: '/' },
   ],
   lab: [

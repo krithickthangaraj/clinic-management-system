@@ -1,0 +1,280 @@
+/* ==========================================================================
+   MEDICINE MASTER DASHBOARD - Clinical Prescribing Defaults Design System
+   ========================================================================== */
+
+:root {
+  --medmaster-bg: #f8fafc;
+  --medmaster-card-bg: #ffffff;
+  --medmaster-border: #e2e8f0;
+  --medmaster-border-subtle: #f1f5f9;
+  --medmaster-text-main: #0f172a;
+  --medmaster-text-muted: #64748b;
+  --medmaster-primary: #0f766e;
+  --medmaster-primary-hover: #115e59;
+  --medmaster-primary-light: #f0fdfa;
+  --medmaster-shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.03);
+  --medmaster-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.medmaster-dashboard-layout {
+  min-height: 100vh;
+  background-color: var(--medmaster-bg);
+  display: flex;
+  flex-direction: column;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: var(--medmaster-text-main);
+}
+
+.medmaster-dashboard-main {
+  flex: 1;
+  padding: 1.25rem 1.75rem 3.5rem 1.75rem;
+}
+
+.medmaster-content-max {
+  max-width: 1560px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+}
+
+/* Header */
+.medmaster-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.25rem 0 0.5rem 0;
+}
+
+.medmaster-title-zone {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.medmaster-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--medmaster-text-main);
+  letter-spacing: -0.02em;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.medmaster-subtitle {
+  font-size: 0.75rem;
+  color: var(--medmaster-text-muted);
+  margin-top: 0.15rem;
+}
+
+/* Action Button */
+.medmaster-btn-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.95rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #ffffff;
+  background-color: var(--medmaster-primary);
+  border: 1px solid var(--medmaster-primary);
+  border-radius: 8px;
+  cursor: pointer;
+  box-shadow: var(--medmaster-shadow-xs);
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.medmaster-btn-add:hover {
+  background-color: var(--medmaster-primary-hover);
+  border-color: var(--medmaster-primary-hover);
+}
+
+/* KPI Cards */
+.medmaster-kpis-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.85rem;
+}
+
+@media (max-width: 1024px) {
+  .medmaster-kpis-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.medmaster-kpi-card {
+  background: #ffffff;
+  border: 1px solid var(--medmaster-border);
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+  box-shadow: var(--medmaster-shadow-xs);
+  border-top-width: 3px;
+}
+
+.kpi-teal { border-top-color: #0f766e; }
+.kpi-blue { border-top-color: #0284c7; }
+.kpi-amber { border-top-color: #d97706; }
+.kpi-purple { border-top-color: #7c3aed; }
+
+.medmaster-kpi-title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--medmaster-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.medmaster-kpi-val {
+  font-size: 1.35rem;
+  font-weight: 800;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  margin-top: 0.25rem;
+}
+
+/* Main Panel & Dense Table */
+.medmaster-panel {
+  background: #ffffff;
+  border: 1px solid var(--medmaster-border);
+  border-radius: 10px;
+  box-shadow: var(--medmaster-shadow-xs);
+  overflow: hidden;
+}
+
+.medmaster-panel-header {
+  padding: 0.75rem 1rem;
+  background-color: #f8fafc;
+  border-bottom: 1px solid var(--medmaster-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.medmaster-dense-table-wrapper {
+  overflow-x: auto;
+}
+
+.medmaster-dense-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.8125rem;
+  min-width: 980px;
+}
+
+.medmaster-dense-table th {
+  background-color: #f8fafc;
+  padding: 0.6rem 0.85rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--medmaster-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--medmaster-border);
+  white-space: nowrap;
+}
+
+.medmaster-dense-table td {
+  padding: 0.65rem 0.85rem;
+  border-bottom: 1px solid var(--medmaster-border-subtle);
+  vertical-align: middle;
+}
+
+.medmaster-dense-table tbody tr:hover {
+  background-color: #f8fafc;
+}
+
+.medmaster-freq-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  background-color: #f0fdfa;
+  border: 1px solid #ccfbf1;
+  color: #0f766e;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-weight: 700;
+  font-size: 0.75rem;
+}
+
+.medmaster-btn-action {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 4px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.1s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.medmaster-btn-action:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #cbd5e1;
+}
+
+.medmaster-btn-deactivate {
+  color: #dc2626;
+  border-color: #fecaca;
+  background: #fff5f5;
+}
+
+.medmaster-btn-deactivate:hover {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+/* Modal Form Styles */
+.medmaster-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(3px);
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.medmaster-modal-card {
+  background: #ffffff;
+  border-radius: 10px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15);
+  width: 100%;
+  max-width: 580px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--medmaster-border);
+}
+
+.medmaster-modal-header {
+  padding: 0.85rem 1.25rem;
+  background-color: #0f172a;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.medmaster-modal-body {
+  padding: 1.25rem;
+  background-color: #f8fafc;
+}
+
+.medmaster-modal-footer {
+  padding: 0.85rem 1.25rem;
+  background-color: #ffffff;
+  border-top: 1px solid var(--medmaster-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}

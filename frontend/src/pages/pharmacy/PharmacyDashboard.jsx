@@ -650,9 +650,9 @@ export default function PharmacyDashboard() {
                 <table className="pharmacy-dense-table">
                   <thead>
                     <tr>
-                      <th style={{ width: '36px' }}>#</th>
+                      <th style={{ width: '46px' }}>S.No</th>
                       <th>Brand Name</th>
-                      <th>Generic Drug Composition</th>
+                      <th>Drug Name</th>
                       <th>Category</th>
                       <th>Batch #</th>
                       <th>Expiry Date</th>

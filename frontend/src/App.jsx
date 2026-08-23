@@ -10,6 +10,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import { ClinicProvider } from './contexts/ClinicContext';
 import AdminConfig from './pages/admin/AdminConfig';
 import MedicineAdmin from './pages/admin/MedicineAdmin';
+import MedicineMasterDashboard from './pages/admin/MedicineMasterDashboard';
 import HomePage from './pages/home/HomePage';
 import Dashboard from './pages/Dashboard';
 import Consultation from './pages/doctor/Consultation';
@@ -121,9 +122,29 @@ function App() {
             <Route
               path="/admin/medicines"
               element={
-                <ProtectedRoute allowedRoles={['admin']}>
+                <ProtectedRoute allowedRoles={['admin', 'pharmacy', 'doctor']}>
                   <AppLayout>
-                    <MedicineAdmin />
+                    <MedicineMasterDashboard />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/medicine-master"
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'pharmacy', 'doctor']}>
+                  <AppLayout>
+                    <MedicineMasterDashboard />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/settings/medicine-master"
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'pharmacy', 'doctor']}>
+                  <AppLayout>
+                    <MedicineMasterDashboard />
                   </AppLayout>
                 </ProtectedRoute>
               }

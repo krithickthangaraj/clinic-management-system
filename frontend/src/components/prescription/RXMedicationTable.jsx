@@ -260,14 +260,14 @@ export default function RXMedicationTable({
         <table className="w-full text-left border-collapse min-w-[1020px]">
           <thead>
             <tr className="bg-slate-50/90 border-b border-slate-200 text-[11px] font-bold text-slate-700 uppercase tracking-wider select-none">
-              <th className="py-2.5 px-3 w-12 text-center">#</th>
-              <th className="py-2.5 px-3 w-48">Brand (Auto-Fill) *</th>
-              <th className="py-2.5 px-3 min-w-[190px]">Generic Composition *</th>
+              <th className="py-2.5 px-3 w-12 text-center">S.No</th>
+              <th className="py-2.5 px-3 w-48">Brand Name</th>
+              <th className="py-2.5 px-3 min-w-[190px]">Drug Name</th>
               <th className="py-2.5 px-3 w-28">Dosage</th>
               <th className="py-2.5 px-3 w-36">Frequency</th>
               <th className="py-2.5 px-3 w-20 text-center">Days</th>
               <th className="py-2.5 px-3 w-44">Instructions</th>
-              <th className="py-2.5 px-3 w-20 text-center">Qty</th>
+              <th className="py-2.5 px-3 w-20 text-center">Quantity</th>
               <th className="py-2.5 px-3 w-28 text-center">Actions</th>
             </tr>
           </thead>
