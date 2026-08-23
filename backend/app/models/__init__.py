@@ -9,14 +9,14 @@ from app.models.master import (
     ChiefComplaintMaster, DiagnosisMaster, DoctorAdviceMaster, LabTestMaster
 )
 from app.models.medicine import (
-    MedicineDrug, MedicineBrand, MedicineType, MedicineDosage
+    MedicineDrug, MedicineBrand, MedicineType, MedicineDosage, MedicineMaster
 )
 from app.models.patient_history import (
     PatientAllergyHistory, PatientFamilyHistory, PatientSurgicalHistory, PatientPastHistory
 )
 from app.models.visit_relations import VisitComplaint, VisitDiagnosis, VisitPayment
 
-from app.models.pharmacy import PharmacyItem, PharmacyDispenseLog
+from app.models.pharmacy import PharmacyItem, PharmacyDispenseLog, PharmacyStockLog
 
 __all__ = [
     "User",
@@ -42,6 +42,8 @@ __all__ = [
     "MedicineBrand",
     "MedicineType",
     "MedicineDosage",
+    "MedicineMaster",
     "PharmacyItem",
     "PharmacyDispenseLog",
+    "PharmacyStockLog",
 ]

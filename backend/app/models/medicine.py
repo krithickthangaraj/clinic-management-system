@@ -47,3 +47,20 @@ class MedicineDosage(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     brand = relationship('MedicineBrand')
+
+
+class MedicineMaster(Base):
+    __tablename__ = 'medicine_master'
+
+    id = Column(Integer, primary_key=True, index=True)
+    brand_name = Column(String, nullable=False, unique=True, index=True)  # e.g. 'Zental 400mg Tab.'
+    drug_name = Column(String, nullable=False, index=True)               # e.g. 'Albendazole'
+    category = Column(String, nullable=True, default='Tablet')          # Tablet, Syrup, Capsule, Injection, Ointment, Drops
+    default_dosage = Column(String, nullable=True, default='1 Tab')     # e.g. '1 Tab', '10ml', '0.5 Tab'
+    default_frequency = Column(String, nullable=True, default='TDS (1-1-1)')  # e.g. 'STAT', 'OD (1-0-0)', 'TDS (1-1-1)'
+    default_days = Column(Integer, nullable=True, default=3)            # e.g. 1, 3, 5
+    default_instructions = Column(String, nullable=True, default='')    # e.g. 'To chew at bed time', 'Before Food', 'After food'
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+

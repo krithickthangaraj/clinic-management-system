@@ -107,6 +107,23 @@ export const medicineService = {
   async deleteDosage(id) {
     await api.delete(`/master/meds/dosages/${id}`);
   },
+
+  // Medicine Master with Prescription Templates (Magic Auto-Fill)
+  async searchMedicineMaster(q = '') {
+    try {
+      const response = await api.get('/master/medicines', {
+        params: { search: q || undefined },
+      });
+      return Array.isArray(response.data) ? response.data : [];
+    } catch {
+      return [];
+    }
+  },
+
+  async saveMedicineMaster(data) {
+    const response = await api.post('/master/medicines', data);
+    return response.data;
+  },
 };
 
 export default medicineService;

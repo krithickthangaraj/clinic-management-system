@@ -109,3 +109,35 @@ class DispenseResponse(BaseModel):
     total_amount: float
     payment_mode: str
     dispensed_at: datetime
+
+
+class StockReceiveRequest(BaseModel):
+    quantity_to_add: int
+    batch_number: Optional[str] = None
+    expiry_date: Optional[date] = None
+    unit_price: Optional[float] = None
+    reference_no: Optional[str] = None  # e.g., PO #1042 / GRN #8821
+    notes: Optional[str] = None
+
+
+class StockAdjustmentRequest(BaseModel):
+    adjustment_type: str = "deduct"  # "add", "deduct", "set"
+    quantity: int
+    reason: str  # "Breakage/Damage", "Physical Audit Discrepancy", "Expired Goods", "Correction", "Other"
+    notes: Optional[str] = None
+
+
+class PharmacyStockLogResponse(BaseModel):
+    id: int
+    item_id: int
+    change_type: str
+    quantity_change: int
+    previous_stock: int
+    new_stock_level: int
+    reason: Optional[str] = None
+    reference_no: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+

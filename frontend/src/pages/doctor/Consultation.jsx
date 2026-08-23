@@ -52,6 +52,7 @@ export default function Consultation() {
     moveDrug,
     removeDrug,
     updateDrug,
+    applyMasterDrug,
     loadTemplate,
     planAndBilling,
     setPlanAndBilling,
@@ -378,6 +379,8 @@ export default function Consultation() {
           onMoveDrug={moveDrug}
           onRemoveDrug={removeDrug}
           onUpdateDrug={updateDrug}
+          onApplyMasterDrug={applyMasterDrug}
+          onToast={setSuccessToast}
         />
 
         {/* 5. ROWS 3, 4, 5: Labs & Investigations, Clinical Plan & Closing Billing */}

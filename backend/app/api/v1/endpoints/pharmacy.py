@@ -11,7 +11,7 @@ from app.models.user import User
 from app.models.enums import UserRole, VisitStatus
 from app.models.visit import Visit
 from app.models.prescription import Prescription, PrescriptionDrug
-from app.models.pharmacy import PharmacyItem, PharmacyDispenseLog
+from app.models.pharmacy import PharmacyItem, PharmacyDispenseLog, PharmacyStockLog
 from app.models.patient import Patient
 from app.schemas.pharmacy import (
     PharmacyItemCreate,
@@ -22,6 +22,9 @@ from app.schemas.pharmacy import (
     PharmacyPrescriptionDetails,
     DispenseRequest,
     DispenseResponse,
+    StockReceiveRequest,
+    StockAdjustmentRequest,
+    PharmacyStockLogResponse,
 )
 
 router = APIRouter()
@@ -111,6 +114,22 @@ async def create_pharmacy_item(
     db.refresh(item)
 
     is_low, is_out, is_near_exp = compute_item_alerts(item)
+
+    # Record initial stock log
+    if item.stock_quantity > 0:
+        log = PharmacyStockLog(
+            item_id=item.id,
+            change_type="INITIAL",
+            quantity_change=item.stock_quantity,
+            previous_stock=0,
+            new_stock_level=item.stock_quantity,
+            reason="Initial Inventory Registration",
+            reference_no=f"BAT-{item.batch_number}",
+            user_id=current_user.id,
+        )
+        db.add(log)
+        db.commit()
+
     return PharmacyItemResponse(
         id=item.id,
         brand_name=item.brand_name,
@@ -127,6 +146,244 @@ async def create_pharmacy_item(
         created_at=item.created_at,
         updated_at=item.updated_at,
     )
+
+
+@router.get("/inventory/{item_id}", response_model=PharmacyItemResponse)
+async def get_pharmacy_item(
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role([UserRole.PHARMACY, UserRole.ADMIN, UserRole.DOCTOR])),
+):
+    """Get single pharmacy inventory item"""
+    item = db.query(PharmacyItem).filter(PharmacyItem.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Pharmacy item not found")
+
+    is_low, is_out, is_near_exp = compute_item_alerts(item)
+    return PharmacyItemResponse(
+        id=item.id,
+        brand_name=item.brand_name,
+        drug_name=item.drug_name,
+        category=item.category,
+        batch_number=item.batch_number,
+        expiry_date=item.expiry_date,
+        stock_quantity=item.stock_quantity,
+        reorder_level=item.reorder_level,
+        unit_price=item.unit_price,
+        is_low_stock=is_low,
+        is_out_of_stock=is_out,
+        is_near_expiry=is_near_exp,
+        created_at=item.created_at,
+        updated_at=item.updated_at,
+    )
+
+
+@router.patch("/inventory/{item_id}", response_model=PharmacyItemResponse)
+async def update_pharmacy_item(
+    item_id: int,
+    payload: PharmacyItemUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role([UserRole.PHARMACY, UserRole.ADMIN])),
+):
+    """Edit details: price, reorder level, batch, expiry, etc."""
+    item = db.query(PharmacyItem).filter(PharmacyItem.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Pharmacy item not found")
+
+    update_data = payload.model_dump(exclude_unset=True)
+    for field, val in update_data.items():
+        if val is not None:
+            setattr(item, field, val)
+
+    item.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(item)
+
+    is_low, is_out, is_near_exp = compute_item_alerts(item)
+    return PharmacyItemResponse(
+        id=item.id,
+        brand_name=item.brand_name,
+        drug_name=item.drug_name,
+        category=item.category,
+        batch_number=item.batch_number,
+        expiry_date=item.expiry_date,
+        stock_quantity=item.stock_quantity,
+        reorder_level=item.reorder_level,
+        unit_price=item.unit_price,
+        is_low_stock=is_low,
+        is_out_of_stock=is_out,
+        is_near_expiry=is_near_exp,
+        created_at=item.created_at,
+        updated_at=item.updated_at,
+    )
+
+
+@router.post("/inventory/{item_id}/receive-stock", response_model=PharmacyItemResponse)
+async def receive_pharmacy_stock(
+    item_id: int,
+    payload: StockReceiveRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role([UserRole.PHARMACY, UserRole.ADMIN])),
+):
+    """
+    Receive Stock (Goods Receipt Note / GRN):
+    Adds incoming shipment quantity to existing stock and records audit log.
+    """
+    item = db.query(PharmacyItem).filter(PharmacyItem.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Pharmacy item not found")
+
+    if payload.quantity_to_add <= 0:
+        raise HTTPException(status_code=400, detail="Quantity to receive must be greater than zero")
+
+    prev_stock = item.stock_quantity
+    new_stock = prev_stock + payload.quantity_to_add
+
+    item.stock_quantity = new_stock
+    if payload.batch_number:
+        item.batch_number = payload.batch_number
+    if payload.expiry_date:
+        item.expiry_date = payload.expiry_date
+    if payload.unit_price is not None and payload.unit_price > 0:
+        item.unit_price = payload.unit_price
+
+    item.updated_at = datetime.utcnow()
+
+    # Record stock receipt log
+    log = PharmacyStockLog(
+        item_id=item.id,
+        change_type="RECEIVE_STOCK",
+        quantity_change=payload.quantity_to_add,
+        previous_stock=prev_stock,
+        new_stock_level=new_stock,
+        reason=payload.notes or "Stock Receipt (GRN)",
+        reference_no=payload.reference_no or f"GRN-{datetime.utcnow().strftime('%Y%m%d%H%M')}",
+        user_id=current_user.id,
+    )
+    db.add(log)
+    db.commit()
+    db.refresh(item)
+
+    is_low, is_out, is_near_exp = compute_item_alerts(item)
+    return PharmacyItemResponse(
+        id=item.id,
+        brand_name=item.brand_name,
+        drug_name=item.drug_name,
+        category=item.category,
+        batch_number=item.batch_number,
+        expiry_date=item.expiry_date,
+        stock_quantity=item.stock_quantity,
+        reorder_level=item.reorder_level,
+        unit_price=item.unit_price,
+        is_low_stock=is_low,
+        is_out_of_stock=is_out,
+        is_near_expiry=is_near_exp,
+        created_at=item.created_at,
+        updated_at=item.updated_at,
+    )
+
+
+@router.post("/inventory/{item_id}/adjust-stock", response_model=PharmacyItemResponse)
+async def adjust_pharmacy_stock(
+    item_id: int,
+    payload: StockAdjustmentRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role([UserRole.PHARMACY, UserRole.ADMIN])),
+):
+    """
+    Stock Adjustment (Breakage, Physical Audit, Expiry, Correction):
+    Manually corrects inventory with mandatory reason and audit log.
+    """
+    item = db.query(PharmacyItem).filter(PharmacyItem.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Pharmacy item not found")
+
+    if not payload.reason or not payload.reason.strip():
+        raise HTTPException(status_code=400, detail="A reason is required for stock adjustment")
+
+    prev_stock = item.stock_quantity
+    adj_type = payload.adjustment_type.lower().strip()
+    qty = payload.quantity
+
+    if adj_type == "add":
+        new_stock = prev_stock + qty
+        change = qty
+    elif adj_type == "deduct":
+        new_stock = max(0, prev_stock - qty)
+        change = -qty
+    elif adj_type == "set":
+        new_stock = max(0, qty)
+        change = new_stock - prev_stock
+    else:
+        raise HTTPException(status_code=400, detail="Invalid adjustment type. Must be 'add', 'deduct', or 'set'.")
+
+    item.stock_quantity = new_stock
+    item.updated_at = datetime.utcnow()
+
+    # Record stock adjustment log
+    log = PharmacyStockLog(
+        item_id=item.id,
+        change_type="ADJUSTMENT",
+        quantity_change=change,
+        previous_stock=prev_stock,
+        new_stock_level=new_stock,
+        reason=f"{payload.reason.strip()}{f' - {payload.notes.strip()}' if payload.notes else ''}",
+        reference_no=f"ADJ-{datetime.utcnow().strftime('%Y%m%d%H%M')}",
+        user_id=current_user.id,
+    )
+    db.add(log)
+    db.commit()
+    db.refresh(item)
+
+    is_low, is_out, is_near_exp = compute_item_alerts(item)
+    return PharmacyItemResponse(
+        id=item.id,
+        brand_name=item.brand_name,
+        drug_name=item.drug_name,
+        category=item.category,
+        batch_number=item.batch_number,
+        expiry_date=item.expiry_date,
+        stock_quantity=item.stock_quantity,
+        reorder_level=item.reorder_level,
+        unit_price=item.unit_price,
+        is_low_stock=is_low,
+        is_out_of_stock=is_out,
+        is_near_expiry=is_near_exp,
+        created_at=item.created_at,
+        updated_at=item.updated_at,
+    )
+
+
+@router.delete("/inventory/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_pharmacy_item(
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role([UserRole.PHARMACY, UserRole.ADMIN])),
+):
+    """Delete an item from inventory"""
+    item = db.query(PharmacyItem).filter(PharmacyItem.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Pharmacy item not found")
+
+    db.delete(item)
+    db.commit()
+
+
+@router.get("/inventory/{item_id}/history", response_model=List[PharmacyStockLogResponse])
+async def get_pharmacy_item_history(
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role([UserRole.PHARMACY, UserRole.ADMIN, UserRole.DOCTOR])),
+):
+    """Get stock movement history / audit trail for a specific item"""
+    logs = (
+        db.query(PharmacyStockLog)
+        .filter(PharmacyStockLog.item_id == item_id)
+        .order_by(PharmacyStockLog.created_at.desc())
+        .limit(50)
+        .all()
+    )
+    return logs
 
 
 # -----------------------------------------------------------------------------

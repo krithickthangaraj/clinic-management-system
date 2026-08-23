@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import api from '../../services/api';
+import { useEffect, useState, useRef } from 'react';
+import medicineService from '../../services/medicineService';
 
 const FREQUENCY_OPTIONS = [
   'TDS (1-1-1)',
@@ -15,14 +15,20 @@ const FREQUENCY_OPTIONS = [
 const DOSAGE_OPTIONS = [
   '1 Tab',
   '2 Tabs',
+  '0.5 Tab',
   '1 Cap',
+  '2 Caps',
   '250mg',
   '500mg',
   '650mg',
   '5ml',
+  '7.5ml',
   '10ml',
+  '15ml',
   '1 Puff',
   '1 Drop',
+  '1 Inj',
+  'Apply',
 ];
 
 const INSTRUCTION_OPTIONS = [
@@ -32,15 +38,21 @@ const INSTRUCTION_OPTIONS = [
   'Empty stomach',
   'At bedtime',
   'With warm water',
+  'To chew at bed time',
+  'Fever, Headache',
+  'Gently massage on pain area',
+  'Morning with water',
+  'After lunch',
+  'After dinner',
 ];
 
 /**
- * Pure RX Medication Table Component
+ * Enhanced Doctor RX Medication Table Component
  * Features:
- * - 100% focused on prescription medicines and dosing regimens
- * - All template engine features decoupled to the dedicated TemplateEngineSection
+ * - "Magic Auto-Fill": Autocomplete searches 40+ MedicineMaster templates
+ * - Populates Brand, Drug, Dosage, Frequency, Days, Instructions & auto-computes Quantity
+ * - Inline "Save to Master" action button to customize and persist defaults
  * - High-speed keyboard navigation and drag-to-reorder rows
- * - Compact, production-grade styling
  */
 export default function RXMedicationTable({
   medicines = [],
@@ -49,20 +61,27 @@ export default function RXMedicationTable({
   onMoveDrug = () => {},
   onRemoveDrug = () => {},
   onUpdateDrug = () => {},
+  onApplyMasterDrug = () => {},
+  onToast = () => {},
 }) {
   const [masterMedicines, setMasterMedicines] = useState([]);
   const [activeSearchIndex, setActiveSearchIndex] = useState(null);
+  const [activeSearchField, setActiveSearchField] = useState(null); // 'brand' | 'drug'
   const [searchResults, setSearchResults] = useState([]);
   const [draggedIndex, setDraggedIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
+  const [savingIndex, setSavingIndex] = useState(null);
+  const [savedSuccessIndex, setSavedSuccessIndex] = useState(null);
+  const dropdownRef = useRef(null);
 
+  // Load MedicineMaster dictionary on mount
   useEffect(() => {
     let isMounted = true;
-    api
-      .get('/master/meds/drugs')
-      .then((res) => {
-        if (isMounted && Array.isArray(res?.data)) {
-          setMasterMedicines(res.data);
+    medicineService
+      .searchMedicineMaster('')
+      .then((data) => {
+        if (isMounted && Array.isArray(data)) {
+          setMasterMedicines(data);
         }
       })
       .catch(() => {});
@@ -72,42 +91,95 @@ export default function RXMedicationTable({
     };
   }, []);
 
-  const handleDrugNameChange = (index, value) => {
-    onUpdateDrug(index, 'drug_name', value);
-    if (value.trim().length >= 2) {
+  // Click outside listener to dismiss search dropdown
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setActiveSearchIndex(null);
+        setActiveSearchField(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleSearchChange = async (index, field, value) => {
+    onUpdateDrug(index, field, value);
+    if (value && value.trim().length >= 1) {
       const q = value.toLowerCase().trim();
-      const matches = masterMedicines
+      const localMatches = masterMedicines
         .filter(
           (m) =>
-            m.name?.toLowerCase().includes(q) ||
             m.brand_name?.toLowerCase().includes(q) ||
-            m.generic_name?.toLowerCase().includes(q)
+            m.drug_name?.toLowerCase().includes(q)
         )
-        .slice(0, 8);
-      setSearchResults(matches);
+        .slice(0, 10);
+
+      setSearchResults(localMatches);
       setActiveSearchIndex(index);
+      setActiveSearchField(field);
+
+      // Async fetch for broader match
+      if (localMatches.length < 3) {
+        try {
+          const apiMatches = await medicineService.searchMedicineMaster(q);
+          if (Array.isArray(apiMatches) && apiMatches.length > 0) {
+            setSearchResults(apiMatches.slice(0, 10));
+          }
+        } catch {
+          // ignore
+        }
+      }
     } else {
       setSearchResults([]);
       setActiveSearchIndex(null);
+      setActiveSearchField(null);
     }
   };
 
   const handleSelectMasterDrug = (index, masterDrug) => {
-    onUpdateDrug(index, 'drug_name', masterDrug.name || masterDrug.generic_name || '');
-    if (masterDrug.brand_name) {
-      onUpdateDrug(index, 'brand_name', masterDrug.brand_name);
-    }
-    if (masterDrug.dosage) {
-      onUpdateDrug(index, 'dosage', masterDrug.dosage);
-    }
-    if (masterDrug.frequency) {
-      onUpdateDrug(index, 'frequency', masterDrug.frequency);
-    }
-    if (masterDrug.instructions) {
-      onUpdateDrug(index, 'instructions', masterDrug.instructions);
-    }
+    onApplyMasterDrug(index, masterDrug);
     setSearchResults([]);
     setActiveSearchIndex(null);
+    setActiveSearchField(null);
+  };
+
+  // Inline "Save to Master" Action
+  const handleSaveToMaster = async (index, row) => {
+    const brand = (row.brand_name || '').trim();
+    const drug = (row.drug_name || '').trim();
+
+    if (!brand || !drug) {
+      alert('Please enter both a Brand Name and Generic Drug Name to save to Medicine Master.');
+      return;
+    }
+
+    setSavingIndex(index);
+    try {
+      const payload = {
+        brand_name: brand,
+        drug_name: drug,
+        category: row.category || 'Tablet',
+        default_dosage: row.dosage || '1 Tab',
+        default_frequency: row.frequency || 'TDS (1-1-1)',
+        default_days: parseInt(row.days, 10) || 3,
+        default_instructions: row.instructions || '',
+      };
+      await medicineService.saveMedicineMaster(payload);
+      setSavedSuccessIndex(index);
+      onToast?.(`'${brand}' saved to Medicine Master templates!`);
+
+      // Refresh local master list
+      const refreshed = await medicineService.searchMedicineMaster('');
+      setMasterMedicines(refreshed);
+
+      setTimeout(() => setSavedSuccessIndex(null), 3000);
+    } catch (err) {
+      console.error('Failed to save to master:', err);
+      alert('Failed to save medicine to master. Please try again.');
+    } finally {
+      setSavingIndex(null);
+    }
   };
 
   // Drag and Drop Event Handlers
@@ -154,6 +226,9 @@ export default function RXMedicationTable({
             <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
               Prescription Medication &amp; Regimen
             </h3>
+            <p className="text-[11px] text-slate-500 font-normal">
+              Type drug name for <strong>Magic Auto-Fill</strong> defaults &bull; Click bookmark to save custom templates
+            </p>
           </div>
         </div>
 
@@ -181,25 +256,27 @@ export default function RXMedicationTable({
       </div>
 
       {/* 2. Responsive Rigid Medication Grid Table */}
-      <div className="overflow-x-auto rounded-lg border border-slate-200 shadow-2xs">
-        <table className="w-full text-left border-collapse min-w-[980px]">
+      <div className="overflow-x-auto rounded-lg border border-slate-200 shadow-2xs" ref={dropdownRef}>
+        <table className="w-full text-left border-collapse min-w-[1020px]">
           <thead>
             <tr className="bg-slate-50/90 border-b border-slate-200 text-[11px] font-bold text-slate-700 uppercase tracking-wider select-none">
               <th className="py-2.5 px-3 w-12 text-center">#</th>
-              <th className="py-2.5 px-3 w-36">Brand</th>
-              <th className="py-2.5 px-3 min-w-[200px]">Drug Name *</th>
+              <th className="py-2.5 px-3 w-48">Brand (Auto-Fill) *</th>
+              <th className="py-2.5 px-3 min-w-[190px]">Generic Composition *</th>
               <th className="py-2.5 px-3 w-28">Dosage</th>
               <th className="py-2.5 px-3 w-36">Frequency</th>
               <th className="py-2.5 px-3 w-20 text-center">Days</th>
-              <th className="py-2.5 px-3 w-40">Instructions</th>
+              <th className="py-2.5 px-3 w-44">Instructions</th>
               <th className="py-2.5 px-3 w-20 text-center">Qty</th>
-              <th className="py-2.5 px-3 w-24 text-center">Actions</th>
+              <th className="py-2.5 px-3 w-28 text-center">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 text-xs text-slate-800 font-medium">
             {medicines.map((row, idx) => {
               const isDragging = draggedIndex === idx;
               const isDragOver = dragOverIndex === idx;
+              const isRowSaved = savedSuccessIndex === idx;
+              const isRowSaving = savingIndex === idx;
 
               return (
                 <tr
@@ -244,40 +321,27 @@ export default function RXMedicationTable({
                     </div>
                   </td>
 
-                  {/* Brand Name */}
-                  <td className="py-2 px-2 align-middle">
-                    <input
-                      type="text"
-                      className="w-full h-8 px-2.5 bg-slate-50/50 hover:bg-slate-50 border border-slate-200/80 rounded-md text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal-500 focus:border-teal-500 transition-all font-medium"
-                      placeholder="Brand"
-                      value={row.brand_name || ''}
-                      onChange={(e) => onUpdateDrug(idx, 'brand_name', e.target.value)}
-                      data-testid={`input-brand-${idx}`}
-                    />
-                  </td>
-
-                  {/* Drug Name with Autocomplete */}
+                  {/* Brand Name with Autocomplete */}
                   <td className="py-2 px-2 align-middle relative">
                     <input
                       type="text"
-                      className="w-full h-8 px-2.5 bg-slate-50/50 hover:bg-slate-50 border border-slate-200/80 rounded-md text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal-500 focus:border-teal-500 transition-all font-semibold"
-                      placeholder="Drug name"
-                      value={row.drug_name || ''}
-                      onChange={(e) => handleDrugNameChange(idx, e.target.value)}
+                      className="w-full h-8 px-2.5 bg-slate-50/50 hover:bg-slate-50 border border-slate-200/80 rounded-md text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal-500 focus:border-teal-500 transition-all font-bold"
+                      placeholder="e.g. Panpro 40mg, Dolo"
+                      value={row.brand_name || ''}
+                      onChange={(e) => handleSearchChange(idx, 'brand_name', e.target.value)}
                       onFocus={() => {
-                        if (row.drug_name?.trim()?.length >= 2) {
-                          handleDrugNameChange(idx, row.drug_name);
+                        if (row.brand_name?.trim()?.length >= 1) {
+                          handleSearchChange(idx, 'brand_name', row.brand_name);
                         }
                       }}
-                      required
-                      data-testid={`input-drug-${idx}`}
+                      data-testid={`input-brand-${idx}`}
                     />
 
-                    {/* Master Medicines Search Results Dropdown */}
-                    {activeSearchIndex === idx && searchResults.length > 0 && (
+                    {/* Autocomplete Dropdown */}
+                    {activeSearchIndex === idx && activeSearchField === 'brand_name' && searchResults.length > 0 && (
                       <div
-                        className="absolute top-full left-2 right-2 bg-white border border-slate-200 rounded-lg shadow-xl z-50 max-h-48 overflow-y-auto mt-1 divide-y divide-slate-100"
-                        data-testid="master-search-dropdown"
+                        className="absolute top-full left-2 right-2 bg-white border border-slate-200 rounded-lg shadow-xl z-50 max-h-56 overflow-y-auto mt-1 divide-y divide-slate-100 min-w-[280px]"
+                        data-testid="brand-search-dropdown"
                       >
                         {searchResults.map((m, sIdx) => (
                           <div
@@ -286,15 +350,62 @@ export default function RXMedicationTable({
                             onClick={() => handleSelectMasterDrug(idx, m)}
                           >
                             <div>
-                              <strong className="text-slate-900 font-semibold">{m.name}</strong>
-                              {m.brand_name && (
-                                <span className="text-[11px] text-slate-500 ml-1.5 font-normal">
-                                  ({m.brand_name})
-                                </span>
-                              )}
+                              <strong className="text-teal-950 font-bold">{m.brand_name}</strong>
+                              <div className="text-[11px] text-slate-500 font-mono">
+                                {m.drug_name}
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-[10px] bg-teal-100 text-teal-800 px-1.5 py-0.5 rounded font-mono font-semibold">
+                                {m.default_frequency || m.frequency || 'TDS'}
+                              </span>
+                              <div className="text-[10px] text-slate-400 mt-0.5">
+                                {m.default_days || m.days || 3}d &bull; {m.default_dosage || m.dosage || '1 Tab'}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </td>
+
+                  {/* Generic Drug Name with Autocomplete */}
+                  <td className="py-2 px-2 align-middle relative">
+                    <input
+                      type="text"
+                      className="w-full h-8 px-2.5 bg-slate-50/50 hover:bg-slate-50 border border-slate-200/80 rounded-md text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal-500 focus:border-teal-500 transition-all font-medium font-mono"
+                      placeholder="e.g. Pantoprazole, Paracetamol"
+                      value={row.drug_name || ''}
+                      onChange={(e) => handleSearchChange(idx, 'drug_name', e.target.value)}
+                      onFocus={() => {
+                        if (row.drug_name?.trim()?.length >= 1) {
+                          handleSearchChange(idx, 'drug_name', row.drug_name);
+                        }
+                      }}
+                      required
+                      data-testid={`input-drug-${idx}`}
+                    />
+
+                    {/* Autocomplete Dropdown */}
+                    {activeSearchIndex === idx && activeSearchField === 'drug_name' && searchResults.length > 0 && (
+                      <div
+                        className="absolute top-full left-2 right-2 bg-white border border-slate-200 rounded-lg shadow-xl z-50 max-h-56 overflow-y-auto mt-1 divide-y divide-slate-100 min-w-[280px]"
+                        data-testid="drug-search-dropdown"
+                      >
+                        {searchResults.map((m, sIdx) => (
+                          <div
+                            key={sIdx}
+                            className="px-3 py-2 hover:bg-teal-50 cursor-pointer text-xs transition-colors flex items-center justify-between"
+                            onClick={() => handleSelectMasterDrug(idx, m)}
+                          >
+                            <div>
+                              <strong className="text-slate-900 font-semibold">{m.drug_name}</strong>
+                              <div className="text-[11px] text-teal-700 font-medium">
+                                {m.brand_name}
+                              </div>
                             </div>
                             <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-mono">
-                              {m.dosage || 'Tab'}
+                              {m.default_dosage || '1 Tab'}
                             </span>
                           </div>
                         ))}
@@ -347,7 +458,7 @@ export default function RXMedicationTable({
                       min="1"
                       max="365"
                       className="w-full h-8 px-1.5 text-center bg-slate-50/50 hover:bg-slate-50 border border-slate-200/80 rounded-md text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal-500 focus:border-teal-500 transition-all font-semibold font-mono"
-                      value={row.days ?? 5}
+                      value={row.days ?? 3}
                       onChange={(e) =>
                         onUpdateDrug(idx, 'days', parseInt(e.target.value, 10) || 1)
                       }
@@ -384,7 +495,7 @@ export default function RXMedicationTable({
                       onChange={(e) =>
                         onUpdateDrug(idx, 'quantity', parseInt(e.target.value, 10) || 0)
                       }
-                      title="Auto-calculated quantity"
+                      title="Auto-calculated quantity based on dosage &amp; days"
                       data-testid={`input-qty-${idx}`}
                     />
                   </td>
@@ -392,6 +503,40 @@ export default function RXMedicationTable({
                   {/* Actions Tray */}
                   <td className="py-2 px-2 align-middle text-center">
                     <div className="flex items-center justify-center gap-1">
+                      {/* Save to Master Button */}
+                      <button
+                        type="button"
+                        className={`p-1 rounded transition-colors cursor-pointer ${
+                          isRowSaved
+                            ? 'text-emerald-700 bg-emerald-50'
+                            : 'text-slate-400 hover:text-amber-600 hover:bg-amber-50'
+                        }`}
+                        onClick={() => handleSaveToMaster(idx, row)}
+                        title={isRowSaved ? 'Saved to Master!' : 'Save current row as default to Medicine Master'}
+                        disabled={isRowSaving}
+                        data-testid={`btn-save-master-${idx}`}
+                      >
+                        {isRowSaved ? (
+                          <svg className="w-3.5 h-3.5 text-emerald-600" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        ) : (
+                          <svg
+                            className={`w-3.5 h-3.5 ${isRowSaving ? 'animate-spin' : ''}`}
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                            <polyline points="17 21 17 13 7 13 7 21" />
+                            <polyline points="7 3 7 8 15 8" />
+                          </svg>
+                        )}
+                      </button>
+
                       {/* Duplicate Button */}
                       <button
                         type="button"

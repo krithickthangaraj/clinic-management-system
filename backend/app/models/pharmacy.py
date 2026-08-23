@@ -38,3 +38,23 @@ class PharmacyDispenseLog(Base):
     visit = relationship("Visit")
     prescription = relationship("Prescription")
     pharmacist = relationship("User")
+
+
+class PharmacyStockLog(Base):
+    __tablename__ = "pharmacy_stock_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    item_id = Column(Integer, ForeignKey("pharmacy_items.id"), nullable=False)
+    change_type = Column(String, nullable=False)  # RECEIVE_STOCK, ADJUSTMENT, DISPENSE, INITIAL
+    quantity_change = Column(Integer, nullable=False)  # e.g., +50, -5
+    previous_stock = Column(Integer, nullable=False, default=0)
+    new_stock_level = Column(Integer, nullable=False)
+    reason = Column(String, nullable=True)  # Shipment, Breakage/Damage, Physical Audit Discrepancy, Expired Goods
+    reference_no = Column(String, nullable=True)  # Invoice / PO / GRN number
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    item = relationship("PharmacyItem")
+    user = relationship("User")
+

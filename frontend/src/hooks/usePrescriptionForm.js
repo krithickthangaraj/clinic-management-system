@@ -385,6 +385,34 @@ export function usePrescriptionForm(initialData = {}) {
     });
   }, []);
 
+  const applyMasterDrug = useCallback((index, masterDrug) => {
+    setMedicines((prev) => {
+      const copy = [...prev];
+      if (index < 0 || index >= copy.length) return prev;
+      const dosage = masterDrug.default_dosage || masterDrug.dosage || '1 Tab';
+      const frequency = masterDrug.default_frequency || masterDrug.frequency || 'TDS (1-1-1)';
+      const days = parseInt(masterDrug.default_days ?? masterDrug.days, 10) || 3;
+      const instructions =
+        masterDrug.default_instructions !== undefined
+          ? masterDrug.default_instructions
+          : masterDrug.instructions || 'After food';
+      const quantity = calculateAutoQuantity(dosage, frequency, days);
+
+      copy[index] = {
+        ...copy[index],
+        brand_name: masterDrug.brand_name || '',
+        drug_name: masterDrug.drug_name || masterDrug.name || '',
+        dosage,
+        frequency,
+        days,
+        instructions,
+        quantity,
+        manualQuantity: false,
+      };
+      return copy;
+    });
+  }, []);
+
   // 1-Click Prescription Template Loader
   const loadTemplate = useCallback((templateKey) => {
     const template = CLINICAL_TEMPLATES[templateKey];
@@ -506,6 +534,7 @@ export function usePrescriptionForm(initialData = {}) {
     moveDrug,
     removeDrug,
     updateDrug,
+    applyMasterDrug,
     loadTemplate,
     planAndBilling,
     setPlanAndBilling,

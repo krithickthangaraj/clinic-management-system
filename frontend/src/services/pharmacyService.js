@@ -25,4 +25,30 @@ export const pharmacyService = {
     const response = await api.post('/pharmacy/inventory', data);
     return response.data;
   },
+
+  async updateInventoryItem(id, data) {
+    const response = await api.patch(`/pharmacy/inventory/${id}`, data);
+    return response.data;
+  },
+
+  async receiveStock(id, payload) {
+    const response = await api.post(`/pharmacy/inventory/${id}/receive-stock`, payload);
+    return response.data;
+  },
+
+  async adjustStock(id, payload) {
+    const response = await api.post(`/pharmacy/inventory/${id}/adjust-stock`, payload);
+    return response.data;
+  },
+
+  async deleteInventoryItem(id) {
+    await api.delete(`/pharmacy/inventory/${id}`);
+  },
+
+  async getItemHistory(id) {
+    const response = await api.get(`/pharmacy/inventory/${id}/history`);
+    return response.data;
+  },
 };
+
+export default pharmacyService;

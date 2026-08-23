@@ -423,3 +423,122 @@
   align-items: center;
   justify-content: space-between;
 }
+
+/* 6. Inventory CRUD Actions & Form Controls */
+.pharmacy-inventory-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pharmacy-btn-primary-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.85rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #ffffff;
+  background-color: #0f766e;
+  border: 1px solid #0f766e;
+  border-radius: var(--pharm-radius-sm);
+  cursor: pointer;
+  box-shadow: var(--pharm-shadow-xs);
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.pharmacy-btn-primary-add:hover {
+  background-color: #115e59;
+  border-color: #115e59;
+}
+
+.pharmacy-btn-secondary-grn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.85rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #0f766e;
+  background-color: #f0fdfa;
+  border: 1px solid #ccfbf1;
+  border-radius: var(--pharm-radius-sm);
+  cursor: pointer;
+  box-shadow: var(--pharm-shadow-xs);
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.pharmacy-btn-secondary-grn:hover {
+  background-color: #ccfbf1;
+}
+
+.pharmacy-btn-table-sm {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 4px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.1s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.pharmacy-btn-table-sm:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #cbd5e1;
+}
+
+.pharmacy-btn-table-adjust {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #92400e;
+}
+
+.pharmacy-btn-table-adjust:hover {
+  background: #fef3c7;
+  color: #78350f;
+}
+
+.pharm-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.pharm-form-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #334155;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+.pharm-form-input,
+.pharm-form-select,
+.pharm-form-textarea {
+  width: 100%;
+  padding: 0.45rem 0.65rem;
+  font-size: 0.8125rem;
+  background-color: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  color: #0f172a;
+  transition: border-color 0.15s ease;
+  box-sizing: border-box;
+}
+
+.pharm-form-input:focus,
+.pharm-form-select:focus,
+.pharm-form-textarea:focus {
+  outline: none;
+  border-color: #0f766e;
+  box-shadow: 0 0 0 1px #0f766e;
+}
+

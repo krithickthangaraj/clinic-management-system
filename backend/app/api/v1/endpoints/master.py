@@ -9,10 +9,11 @@ from app.models.master import (
     ChiefComplaintMaster, DiagnosisMaster, DoctorAdviceMaster, LabTestMaster
 )
 from app.models.medicine import (
-    MedicineDrug, MedicineType, MedicineBrand, MedicineDosage
+    MedicineDrug, MedicineType, MedicineBrand, MedicineDosage, MedicineMaster
 )
 from app.schemas.medicine import (
-    MedicineDrugCreate, MedicineTypeCreate, MedicineBrandCreate, MedicineDosageCreate, MedicineItemResponse
+    MedicineDrugCreate, MedicineTypeCreate, MedicineBrandCreate, MedicineDosageCreate, MedicineItemResponse,
+    MedicineMasterCreate, MedicineMasterUpdate, MedicineMasterResponse
 )
 from app.schemas.master import MasterItemCreate, MasterItemUpdate, MasterItemResponse
 
@@ -577,4 +578,87 @@ async def delete_medicine_dosage(item_id: int, db: Session = Depends(get_db), cu
         raise HTTPException(status_code=404, detail="Dosage not found")
     item.is_active = False
     db.commit()
+
+
+# =============================================================================
+# Medicine Master Prescription Templates (Magic Auto-Fill)
+# =============================================================================
+
+@router.get("/medicines", response_model=List[MedicineMasterResponse])
+async def list_medicine_master(
+    search: str = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Search Medicine Master for prescription auto-fill.
+    Matches across brand_name and generic drug_name.
+    """
+    query = db.query(MedicineMaster).filter(MedicineMaster.is_active == True)
+    if search and search.strip():
+        term = f"%{search.strip()}%"
+        query = query.filter(
+            (MedicineMaster.brand_name.ilike(term)) | (MedicineMaster.drug_name.ilike(term))
+        )
+    items = query.order_by(MedicineMaster.brand_name.asc()).limit(60).all()
+    return items
+
+
+@router.post("/medicines", response_model=MedicineMasterResponse, status_code=status.HTTP_201_CREATED)
+async def create_or_update_medicine_master(
+    data: MedicineMasterCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role([UserRole.DOCTOR, UserRole.ADMIN])),
+):
+    """
+    Inline 'Save to Master' action:
+    Creates a new MedicineMaster record or updates defaults if brand_name exists.
+    """
+    brand = (data.brand_name or "").strip()
+    drug = (data.drug_name or "").strip()
+    if not brand or not drug:
+        raise HTTPException(status_code=400, detail="Brand name and generic drug name are required")
+
+    existing = db.query(MedicineMaster).filter(
+        MedicineMaster.brand_name.ilike(brand),
+        MedicineMaster.is_active == True,
+    ).first()
+
+    if existing:
+        existing.drug_name = drug
+        existing.category = data.category or existing.category
+        existing.default_dosage = data.default_dosage or existing.default_dosage
+        existing.default_frequency = data.default_frequency or existing.default_frequency
+        existing.default_days = data.default_days or existing.default_days
+        existing.default_instructions = data.default_instructions if data.default_instructions is not None else existing.default_instructions
+        db.commit()
+        db.refresh(existing)
+        return existing
+
+    item = MedicineMaster(
+        brand_name=brand,
+        drug_name=drug,
+        category=data.category or "Tablet",
+        default_dosage=data.default_dosage or "1 Tab",
+        default_frequency=data.default_frequency or "TDS (1-1-1)",
+        default_days=data.default_days or 3,
+        default_instructions=data.default_instructions or "",
+    )
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+@router.get("/medicines/{item_id}", response_model=MedicineMasterResponse)
+async def get_medicine_master_item(
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    item = db.query(MedicineMaster).filter(MedicineMaster.id == item_id, MedicineMaster.is_active == True).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Medicine template not found")
+    return item
+
 
