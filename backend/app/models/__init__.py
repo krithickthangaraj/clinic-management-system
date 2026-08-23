@@ -16,6 +16,8 @@ from app.models.patient_history import (
 )
 from app.models.visit_relations import VisitComplaint, VisitDiagnosis, VisitPayment
 
+from app.models.pharmacy import PharmacyItem, PharmacyDispenseLog
+
 __all__ = [
     "User",
     "Patient",
@@ -40,4 +42,6 @@ __all__ = [
     "MedicineBrand",
     "MedicineType",
     "MedicineDosage",
+    "PharmacyItem",
+    "PharmacyDispenseLog",
 ]

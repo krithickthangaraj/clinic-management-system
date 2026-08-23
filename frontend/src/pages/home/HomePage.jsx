@@ -91,6 +91,17 @@ export default function HomePage() {
             ),
           },
           {
+            title: 'Pharmacy Desk & Inventory',
+            desc: 'Review dispensed medicines, prescription fulfillment, and stock levels.',
+            path: '/pharmacy',
+            actionText: 'Open Pharmacy',
+            icon: (
+              <svg className="action-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+              </svg>
+            ),
+          },
+          {
             title: 'Clinical Templates',
             desc: 'Configure and customize standardized prescription advice and drug templates.',
             path: '/doctor/template/new',
@@ -136,6 +147,33 @@ export default function HomePage() {
               <svg className="action-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <rect width="18" height="18" x="3" y="3" rx="2" />
                 <path d="M7 8h10M7 12h10M7 16h6" />
+              </svg>
+            ),
+          },
+          {
+            title: 'Pharmacy Desk & Fulfillment',
+            desc: 'Prescription dispensing queue, stock status, and billing.',
+            path: '/pharmacy',
+            actionText: 'Open Pharmacy',
+            icon: (
+              <svg className="action-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+              </svg>
+            ),
+          },
+        ];
+
+      case 'pharmacy':
+        return [
+          {
+            title: 'Prescription Fulfillment & Dispensing',
+            desc: 'Process doctor-prescribed medications, calculate bills, and fulfill orders.',
+            path: '/pharmacy',
+            isPrimary: true,
+            actionText: 'Open Fulfillment Desk',
+            icon: (
+              <svg className="action-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
               </svg>
             ),
           },
@@ -188,6 +226,17 @@ export default function HomePage() {
               <svg className="action-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
                 <circle cx="12" cy="7" r="4" />
+              </svg>
+            ),
+          },
+          {
+            title: 'Pharmacy Desk & Fulfillment',
+            desc: 'Live prescription dispensing, stock tracking for 50 medicines, and billing.',
+            path: '/pharmacy',
+            actionText: 'Pharmacy Desk',
+            icon: (
+              <svg className="action-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
               </svg>
             ),
           },

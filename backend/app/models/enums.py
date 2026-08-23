@@ -5,6 +5,7 @@ class UserRole(str, Enum):
     RECEPTION = "reception"
     DOCTOR = "doctor"
     LAB = "lab"
+    PHARMACY = "pharmacy"
     ADMIN = "admin"
 
 
@@ -48,6 +49,7 @@ class VisitStatus(str, Enum):
     IN_CONSULTATION = "in_consultation"  # Doctor is seeing
     CONSULTED = "consulted"  # Consultation complete
     COMPLETED = "completed"  # Prescription printed, visit complete
+    DISPENSED = "dispensed"  # Pharmacy dispensed medication
 
 
 class TestStatus(str, Enum):

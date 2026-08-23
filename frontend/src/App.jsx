@@ -19,6 +19,7 @@ import TemplateEdit from './pages/doctor/TemplateEdit';
 import PendingTests from './pages/lab/PendingTests';
 import Login from './pages/Login';
 import PatientRegistration from './pages/reception/PatientRegistration';
+import PharmacyDashboard from './pages/pharmacy/PharmacyDashboard';
 
 function App() {
   return (
@@ -93,6 +94,16 @@ function App() {
                 <ProtectedRoute allowedRoles={['lab', 'admin']}>
                   <AppLayout>
                     <PendingTests />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/pharmacy"
+              element={
+                <ProtectedRoute allowedRoles={['pharmacy', 'admin', 'doctor']}>
+                  <AppLayout>
+                    <PharmacyDashboard />
                   </AppLayout>
                 </ProtectedRoute>
               }

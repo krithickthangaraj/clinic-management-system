@@ -11,18 +11,23 @@ const ROLE_NAV_CONFIG = {
     { label: 'Registration', path: '/reception/register' },
     { label: 'Doctor Desk', path: '/doctor/queue' },
     { label: 'Laboratory', path: '/lab/tests' },
-    { label: 'Pharmacy', path: '/admin/medicines' },
-    { label: 'Reports', path: '/admin/config' },
-    { label: 'Certificates', path: '/admin/config' },
+    { label: 'Pharmacy', path: '/pharmacy' },
+    { label: 'Medicine Master', path: '/admin/medicines' },
     { label: 'Settings', path: '/admin/config' },
   ],
   doctor: [
     { label: 'Doctor Desk', path: '/doctor/queue' },
     { label: 'Registration', path: '/reception/register' },
+    { label: 'Pharmacy', path: '/pharmacy' },
     { label: 'Home', path: '/' },
   ],
   reception: [
     { label: 'Registration', path: '/reception/register' },
+    { label: 'Pharmacy', path: '/pharmacy' },
+    { label: 'Home', path: '/' },
+  ],
+  pharmacy: [
+    { label: 'Pharmacy', path: '/pharmacy' },
     { label: 'Home', path: '/' },
   ],
   lab: [
