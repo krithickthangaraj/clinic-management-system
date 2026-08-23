@@ -5,8 +5,9 @@ from app.models.vitals import Vitals
 from app.models.prescription import Prescription, PrescriptionDrug
 from app.models.test import Test
 from app.models.template import Template
+from app.models.settings import HospitalSettings
 from app.models.master import (
-    ChiefComplaintMaster, DiagnosisMaster, DoctorAdviceMaster
+    ChiefComplaintMaster, DiagnosisMaster, DoctorAdviceMaster, ProcedureMaster, ReferralMaster
 )
 from app.models.lab import (
     LabTestMaster, LabOrder, LabResult
@@ -30,9 +31,12 @@ __all__ = [
     "PrescriptionDrug",
     "Test",
     "Template",
+    "HospitalSettings",
     "ChiefComplaintMaster",
     "DiagnosisMaster",
     "DoctorAdviceMaster",
+    "ProcedureMaster",
+    "ReferralMaster",
     "LabTestMaster",
     "LabOrder",
     "LabResult",
@@ -52,3 +56,4 @@ __all__ = [
     "PharmacyDispenseLog",
     "PharmacyStockLog",
 ]
+

@@ -22,6 +22,8 @@ import PendingTests from './pages/lab/PendingTests';
 import Login from './pages/Login';
 import PatientRegistration from './pages/reception/PatientRegistration';
 import PharmacyDashboard from './pages/pharmacy/PharmacyDashboard';
+import SettingsDashboard from './pages/settings/SettingsDashboard';
+import ReportsDashboard from './pages/reports/ReportsDashboard';
 
 function App() {
   return (
@@ -121,11 +123,31 @@ function App() {
               }
             />
             <Route
+              path="/reports"
+              element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <ReportsDashboard />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <SettingsDashboard />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/admin/config"
               element={
-                <ProtectedRoute allowedRoles={['admin']}>
+                <ProtectedRoute>
                   <AppLayout>
-                    <AdminConfig />
+                    <SettingsDashboard />
                   </AppLayout>
                 </ProtectedRoute>
               }

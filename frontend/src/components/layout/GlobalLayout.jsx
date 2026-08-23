@@ -13,30 +13,41 @@ const ROLE_NAV_CONFIG = {
     { label: 'Laboratory', path: '/lab/tests' },
     { label: 'Pharmacy', path: '/pharmacy' },
     { label: 'Medicine Master', path: '/admin/medicines' },
-    { label: 'Settings', path: '/admin/config' },
+    { label: 'Reports', path: '/reports' },
+    { label: 'Settings', path: '/settings' },
   ],
   doctor: [
     { label: 'Doctor Desk', path: '/doctor/queue' },
     { label: 'Registration', path: '/reception/register' },
     { label: 'Pharmacy', path: '/pharmacy' },
     { label: 'Medicine Master', path: '/admin/medicines' },
+    { label: 'Reports', path: '/reports' },
+    { label: 'Settings', path: '/settings' },
     { label: 'Home', path: '/' },
   ],
   reception: [
     { label: 'Registration', path: '/reception/register' },
     { label: 'Pharmacy', path: '/pharmacy' },
+    { label: 'Reports', path: '/reports' },
+    { label: 'Settings', path: '/settings' },
     { label: 'Home', path: '/' },
   ],
   pharmacy: [
     { label: 'Pharmacy', path: '/pharmacy' },
     { label: 'Medicine Master', path: '/admin/medicines' },
+    { label: 'Reports', path: '/reports' },
+    { label: 'Settings', path: '/settings' },
     { label: 'Home', path: '/' },
   ],
   lab: [
     { label: 'Laboratory', path: '/lab/tests' },
+    { label: 'Reports', path: '/reports' },
+    { label: 'Settings', path: '/settings' },
     { label: 'Home', path: '/' },
   ],
 };
+
+
 
 export default function GlobalLayout({ children }) {
   const { user, logout } = useAuth();
