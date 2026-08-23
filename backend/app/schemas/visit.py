@@ -54,6 +54,7 @@ class VisitResponse(BaseModel):
     patient_age_months: Optional[int] = None
     patient_gender: Optional[str] = None
     patient_phone: Optional[str] = None
+    patient_custom_id: Optional[str] = None
     consultant_assigned: Optional[str] = None
     laboratory_reports: Optional[str] = None
 

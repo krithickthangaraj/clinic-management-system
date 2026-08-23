@@ -220,6 +220,7 @@ async def get_visit(
         visit_dict["patient_age"] = getattr(visit.patient, "age_years", None) or getattr(visit.patient, "age", None)
         visit_dict["patient_age_months"] = getattr(visit.patient, "age_months", None)
         visit_dict["patient_gender"] = visit.patient.gender
+        visit_dict["patient_custom_id"] = visit.patient.patient_id or f"PAT-{visit.patient.id}"
     return VisitResponse(**visit_dict)
 
 

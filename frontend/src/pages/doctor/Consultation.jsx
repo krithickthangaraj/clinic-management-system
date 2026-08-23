@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { usePrescriptionForm } from '../../hooks/usePrescriptionForm';
+import { patientService } from '../../services/patientService';
 import { prescriptionService } from '../../services/prescriptionService';
 import { visitService } from '../../services/visitService';
 import { vitalsService } from '../../services/vitalsService';
@@ -71,7 +72,38 @@ export default function Consultation() {
         const visitData = await visitService.getById(visitId);
         if (!mounted) return;
         setVisit(visitData);
-        setPatient(visitData.patient || {});
+
+        // Fetch comprehensive patient details
+        let patientObj = visitData.patient;
+        if (!patientObj && visitData.patient_id) {
+          try {
+            patientObj = await patientService.getById(visitData.patient_id);
+          } catch {
+            patientObj = {
+              id: visitData.patient_id,
+              patient_id: visitData.patient_custom_id || `PAT-${visitData.patient_id}`,
+              name: visitData.patient_name,
+              full_name: visitData.patient_name,
+              age: visitData.patient_age,
+              age_years: visitData.patient_age,
+              gender: visitData.patient_gender,
+              phone: visitData.patient_phone,
+            };
+          }
+        }
+        if (!patientObj && visitData.patient_name) {
+          patientObj = {
+            id: visitData.patient_id,
+            patient_id: visitData.patient_custom_id || `PAT-${visitData.patient_id}`,
+            name: visitData.patient_name,
+            full_name: visitData.patient_name,
+            age: visitData.patient_age,
+            age_years: visitData.patient_age,
+            gender: visitData.patient_gender,
+            phone: visitData.patient_phone,
+          };
+        }
+        setPatient(patientObj || {});
 
         // Fetch vitals
         try {
@@ -202,7 +234,9 @@ export default function Consultation() {
         validMedicines.length === 0 &&
         actionType !== 'not_visited' &&
         actionType !== 'send_to_lab' &&
-        actionType !== 'hold'
+        actionType !== 'hold' &&
+        actionType !== 'pending' &&
+        actionType !== 'save'
       ) {
         setErrorMessage('Please add at least one medication to the prescription.');
         setSaving(false);
@@ -243,6 +277,11 @@ export default function Consultation() {
         setTimeout(() => {
           navigate('/doctor/queue');
         }, 900);
+      } else if (actionType === 'pending' || actionType === 'save') {
+        setSuccessToast('Prescription saved and marked as Pending.');
+        setTimeout(() => {
+          navigate('/doctor/queue');
+        }, 900);
       } else {
         setSuccessToast(`Prescription saved successfully (${result.status})`);
         setTimeout(() => {
@@ -260,13 +299,13 @@ export default function Consultation() {
     }
   };
 
-  // Keyboard Shortcuts: Ctrl+Enter (Save), Alt+N (Add Drug)
+  // Keyboard Shortcuts: Ctrl+Enter (Pending/Save), Alt+N (Add Drug)
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Ctrl+Enter or Cmd+Enter to Save
+      // Ctrl+Enter or Cmd+Enter to Mark Pending & Save
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
         e.preventDefault();
-        handleAction('save');
+        handleAction('pending');
       }
       // Alt+N to Add Drug
       if (e.altKey && (e.key === 'n' || e.key === 'N')) {

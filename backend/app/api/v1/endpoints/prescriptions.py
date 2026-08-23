@@ -96,13 +96,14 @@ async def save_full_prescription(
     status_map = {
         "completed": VisitStatus.COMPLETED.value,
         "save": VisitStatus.IN_CONSULTATION.value,
+        "save_draft": VisitStatus.IN_CONSULTATION.value,
+        "pending": VisitStatus.IN_CONSULTATION.value,
         "hold": VisitStatus.REPORTS_PENDING.value,
         "send_to_lab": VisitStatus.REPORTS_PENDING.value,
         "reports_pending": VisitStatus.REPORTS_PENDING.value,
         "reports_ready": VisitStatus.REPORTS_READY.value,
         "followup": VisitStatus.CONSULTED.value,
         "reminder": VisitStatus.IN_CONSULTATION.value,
-        "pending": VisitStatus.VITALS_DONE.value,
         "not_visited": VisitStatus.REGISTERED.value,
     }
     visit.status = status_map.get(payload.status_action, VisitStatus.COMPLETED.value)

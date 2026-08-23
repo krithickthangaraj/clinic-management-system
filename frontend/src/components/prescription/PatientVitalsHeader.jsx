@@ -65,58 +65,85 @@ export default function PatientVitalsHeader({
     setTempValue('');
   };
 
+  const displayName =
+    patient?.name ||
+    patient?.full_name ||
+    visit?.patient_name ||
+    visit?.patient?.name ||
+    visit?.patient?.full_name ||
+    'Patient Consultation';
+
+  const displayPatientId =
+    patient?.patient_id ||
+    patient?.uhid ||
+    visit?.patient_custom_id ||
+    visit?.patient_uhid ||
+    (patient?.id ? `PAT-${patient.id}` : null) ||
+    (visit?.patient_id ? `PAT-${visit.patient_id}` : '—');
+
+  const displayAge =
+    patient?.age !== undefined && patient?.age !== null && patient?.age !== ''
+      ? `${patient.age} Yrs`
+      : patient?.age_years !== undefined && patient?.age_years !== null && patient?.age_years !== ''
+      ? `${patient.age_years} Yrs`
+      : visit?.patient_age !== undefined && visit?.patient_age !== null && visit?.patient_age !== ''
+      ? `${visit.patient_age} Yrs`
+      : '—';
+
+  const displayGender = patient?.gender || visit?.patient_gender || '—';
+
   return (
     <header
-      className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-xs px-5 py-2.5 flex items-center justify-between gap-4 -mx-4 -mt-4 mb-4 overflow-x-auto"
+      className="sticky top-0 z-40 bg-teal-50/80 backdrop-blur-md border-b border-teal-200/80 shadow-xs px-4 py-2 flex items-center justify-between gap-2 -mx-4 -mt-4 mb-4"
       data-testid="sticky-vitals-header"
     >
-      {/* 1. Demographics Left Side (Single Line) */}
-      <div className="flex items-center gap-2.5 shrink-0">
+      {/* 1. Demographics Left Side (Single Line, Compact) */}
+      <div className="flex items-center gap-2 shrink-0">
         <h2
-          className="text-base font-bold text-slate-900 tracking-tight whitespace-nowrap"
+          className="text-sm font-bold text-slate-900 tracking-tight whitespace-nowrap max-w-[150px] sm:max-w-[200px] xl:max-w-[260px] truncate"
           data-testid="patient-name-header"
+          title={displayName}
         >
-          {patient.name || patient.full_name || 'Patient Consultation'}
+          {displayName}
         </h2>
 
         <span
-          className="inline-flex items-center h-6 px-2 rounded-full text-xs font-mono font-bold bg-sky-50 text-sky-700 border border-sky-200/70 whitespace-nowrap"
+          className="inline-flex items-center h-5.5 px-1.5 rounded-full text-[11px] font-mono font-bold bg-sky-50 text-sky-700 border border-sky-200/70 whitespace-nowrap"
           data-testid="patient-id-badge"
         >
-          {patient.patient_id || `#${patient.id || '—'}`}
+          {displayPatientId}
         </span>
 
-        <span className="inline-flex items-center h-6 px-2 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200/60 whitespace-nowrap">
-          {patient.age ? `${patient.age} Yrs` : patient.age_years ? `${patient.age_years} Yrs` : '—'} /{' '}
-          {patient.gender || '—'}
-        </span>
-
-        <span className="text-slate-300 hidden md:inline">&bull;</span>
-
-        <span className="text-xs text-slate-500 hidden lg:inline whitespace-nowrap">
-          Doctor: <strong className="font-semibold text-slate-700">{consultantName || visit.consultant_assigned || 'Dr. T.S.Jeyagowthaman'}</strong>
+        <span className="inline-flex items-center h-5.5 px-1.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200/60 whitespace-nowrap">
+          {displayAge} / {displayGender}
         </span>
 
         <span className="text-slate-300 hidden md:inline">&bull;</span>
 
-        <span className="text-xs text-slate-500 flex items-center gap-1 whitespace-nowrap">
-          <span>Waiting:</span>
+        <span className="text-[11px] text-slate-500 hidden lg:inline whitespace-nowrap">
+          Dr: <strong className="font-semibold text-slate-700">{consultantName || visit?.consultant_assigned || 'Dr. T.S.Jeyagowthaman'}</strong>
+        </span>
+
+        <span className="text-slate-300 hidden md:inline">&bull;</span>
+
+        <span className="text-[11px] text-slate-500 hidden sm:flex items-center gap-1 whitespace-nowrap">
+          <span>Wait:</span>
           <strong
             className={`font-semibold ${isCompleted ? 'text-slate-500 font-mono' : 'text-slate-700'}`}
             data-testid="header-waiting-time"
           >
-            {elapsedWaitMinutes}m {isCompleted && '(Completed)'}
+            {elapsedWaitMinutes}m {isCompleted && '(Done)'}
           </strong>
         </span>
       </div>
 
-      {/* 2. All 9 Vitals Badges on the Right Side (Single Line, Click-to-Edit) */}
-      <div className="flex items-center gap-1.5 shrink-0" data-testid="vitals-badges-container">
+      {/* 2. All 9 Vitals Badges on the Right Side (Compact Single Line, Click-to-Edit) */}
+      <div className="flex items-center gap-1 shrink-0" data-testid="vitals-badges-container">
         {/* 1. Weight (WT) */}
         {editingField === 'weight' ? (
           <input
             type="number"
-            className="w-18 h-7 px-1.5 text-xs font-semibold bg-white border border-teal-500 rounded-full focus:outline-none text-center shadow-xs"
+            className="w-16 h-6 px-1 text-[11px] font-semibold bg-white border border-teal-500 rounded-full focus:outline-none text-center shadow-xs"
             value={tempValue}
             placeholder="WT kg"
             autoFocus
@@ -127,12 +154,12 @@ export default function PatientVitalsHeader({
           />
         ) : (
           <div
-            className="inline-flex items-center gap-1 h-7 px-2 rounded-full text-xs font-medium bg-slate-100 hover:bg-slate-200 border border-slate-200/70 text-slate-700 cursor-pointer transition-colors whitespace-nowrap"
+            className="inline-flex items-center gap-1 h-6 px-1.5 rounded-full text-[11px] font-medium bg-slate-100 hover:bg-slate-200 border border-slate-200/70 text-slate-700 cursor-pointer transition-colors whitespace-nowrap"
             onClick={() => startEdit('weight', vitals.weight_kg || vitals.weight)}
             title="Click to edit Weight"
             data-testid="vital-badge-weight"
           >
-            <span className="font-bold text-[10px] text-slate-400">WT</span>
+            <span className="font-bold text-[9px] text-slate-400">WT</span>
             <strong className="font-semibold text-slate-900">{vitals.weight_kg || vitals.weight || '—'} kg</strong>
           </div>
         )}
@@ -141,7 +168,7 @@ export default function PatientVitalsHeader({
         {editingField === 'height' ? (
           <input
             type="number"
-            className="w-18 h-7 px-1.5 text-xs font-semibold bg-white border border-teal-500 rounded-full focus:outline-none text-center shadow-xs"
+            className="w-16 h-6 px-1 text-[11px] font-semibold bg-white border border-teal-500 rounded-full focus:outline-none text-center shadow-xs"
             value={tempValue}
             placeholder="HT cm"
             autoFocus
@@ -152,23 +179,23 @@ export default function PatientVitalsHeader({
           />
         ) : (
           <div
-            className="inline-flex items-center gap-1 h-7 px-2 rounded-full text-xs font-medium bg-slate-100 hover:bg-slate-200 border border-slate-200/70 text-slate-700 cursor-pointer transition-colors whitespace-nowrap"
+            className="inline-flex items-center gap-1 h-6 px-1.5 rounded-full text-[11px] font-medium bg-slate-100 hover:bg-slate-200 border border-slate-200/70 text-slate-700 cursor-pointer transition-colors whitespace-nowrap"
             onClick={() => startEdit('height', vitals.height_cm)}
             title="Click to edit Height"
             data-testid="vital-badge-height"
           >
-            <span className="font-bold text-[10px] text-slate-400">HT</span>
+            <span className="font-bold text-[9px] text-slate-400">HT</span>
             <strong className="font-semibold text-slate-900">{vitals.height_cm || '—'} cm</strong>
           </div>
         )}
 
         {/* 3. BMI */}
         <div
-          className="inline-flex items-center gap-1 h-7 px-2 rounded-full text-xs font-medium bg-teal-50 border border-teal-200/70 text-teal-800 whitespace-nowrap"
+          className="inline-flex items-center gap-1 h-6 px-1.5 rounded-full text-[11px] font-medium bg-teal-50 border border-teal-200/70 text-teal-800 whitespace-nowrap"
           title="Body Mass Index (Auto-calculated from WT & HT)"
           data-testid="vital-badge-bmi"
         >
-          <span className="font-bold text-[10px] text-teal-600">BMI</span>
+          <span className="font-bold text-[9px] text-teal-600">BMI</span>
           <strong className="font-semibold">{vitals.bmi || (vitals.weight_kg && vitals.height_cm ? (vitals.weight_kg / Math.pow(vitals.height_cm / 100, 2)).toFixed(1) : '—')}</strong>
         </div>
 
@@ -176,7 +203,7 @@ export default function PatientVitalsHeader({
         {editingField === 'bp' ? (
           <input
             type="text"
-            className="w-22 h-7 px-1.5 text-xs font-semibold bg-white border border-teal-500 rounded-full focus:outline-none text-center shadow-xs"
+            className="w-20 h-6 px-1 text-[11px] font-semibold bg-white border border-teal-500 rounded-full focus:outline-none text-center shadow-xs"
             value={tempValue}
             placeholder="120/80"
             autoFocus
@@ -187,7 +214,7 @@ export default function PatientVitalsHeader({
           />
         ) : (
           <div
-            className={`inline-flex items-center gap-1 h-7 px-2 rounded-full text-xs border cursor-pointer transition-colors whitespace-nowrap ${
+            className={`inline-flex items-center gap-1 h-6 px-1.5 rounded-full text-[11px] border cursor-pointer transition-colors whitespace-nowrap ${
               isHighBp()
                 ? 'bg-rose-50 hover:bg-rose-100 border-rose-200 text-rose-700 font-semibold animate-pulse'
                 : 'bg-slate-100 hover:bg-slate-200 border-slate-200/70 text-slate-700'
@@ -196,7 +223,7 @@ export default function PatientVitalsHeader({
             title="Click to edit Blood Pressure"
             data-testid="bp-vital-badge"
           >
-            <span className="font-bold text-[10px] opacity-70">BP</span>
+            <span className="font-bold text-[9px] opacity-70">BP</span>
             <strong className="font-semibold">{bpVal || '—'}</strong>
           </div>
         )}
@@ -206,7 +233,7 @@ export default function PatientVitalsHeader({
           <input
             type="number"
             step="0.1"
-            className="w-18 h-7 px-1.5 text-xs font-semibold bg-white border border-teal-500 rounded-full focus:outline-none text-center shadow-xs"
+            className="w-16 h-6 px-1 text-[11px] font-semibold bg-white border border-teal-500 rounded-full focus:outline-none text-center shadow-xs"
             value={tempValue}
             placeholder="TEMP °F"
             autoFocus
@@ -217,7 +244,7 @@ export default function PatientVitalsHeader({
           />
         ) : (
           <div
-            className={`inline-flex items-center gap-1 h-7 px-2 rounded-full text-xs border cursor-pointer transition-colors whitespace-nowrap ${
+            className={`inline-flex items-center gap-1 h-6 px-1.5 rounded-full text-[11px] border cursor-pointer transition-colors whitespace-nowrap ${
               isHighTemp()
                 ? 'bg-rose-50 hover:bg-rose-100 border-rose-200 text-rose-700 font-semibold'
                 : 'bg-slate-100 hover:bg-slate-200 border-slate-200/70 text-slate-700'
@@ -226,7 +253,7 @@ export default function PatientVitalsHeader({
             title="Click to edit Temperature"
             data-testid="temp-vital-badge"
           >
-            <span className="font-bold text-[10px] opacity-70">TEMP</span>
+            <span className="font-bold text-[9px] opacity-70">TEMP</span>
             <strong className="font-semibold">{vitals.temperature_f || vitals.temperature || '—'} °F</strong>
           </div>
         )}
@@ -235,7 +262,7 @@ export default function PatientVitalsHeader({
         {editingField === 'pr' ? (
           <input
             type="number"
-            className="w-18 h-7 px-1.5 text-xs font-semibold bg-white border border-teal-500 rounded-full focus:outline-none text-center shadow-xs"
+            className="w-16 h-6 px-1 text-[11px] font-semibold bg-white border border-teal-500 rounded-full focus:outline-none text-center shadow-xs"
             value={tempValue}
             placeholder="PR bpm"
             autoFocus
@@ -246,12 +273,12 @@ export default function PatientVitalsHeader({
           />
         ) : (
           <div
-            className="inline-flex items-center gap-1 h-7 px-2 rounded-full text-xs font-medium bg-slate-100 hover:bg-slate-200 border border-slate-200/70 text-slate-700 cursor-pointer transition-colors whitespace-nowrap"
+            className="inline-flex items-center gap-1 h-6 px-1.5 rounded-full text-[11px] font-medium bg-slate-100 hover:bg-slate-200 border border-slate-200/70 text-slate-700 cursor-pointer transition-colors whitespace-nowrap"
             onClick={() => startEdit('pr', vitals.pulse_rate_bpm || vitals.pr)}
             title="Click to edit Pulse Rate"
             data-testid="vital-badge-pr"
           >
-            <span className="font-bold text-[10px] text-slate-400">PR</span>
+            <span className="font-bold text-[9px] text-slate-400">PR</span>
             <strong className="font-semibold text-slate-900">{vitals.pulse_rate_bpm || vitals.pr || '—'}</strong>
           </div>
         )}
@@ -260,7 +287,7 @@ export default function PatientVitalsHeader({
         {editingField === 'spo2' ? (
           <input
             type="number"
-            className="w-18 h-7 px-1.5 text-xs font-semibold bg-white border border-teal-500 rounded-full focus:outline-none text-center shadow-xs"
+            className="w-16 h-6 px-1 text-[11px] font-semibold bg-white border border-teal-500 rounded-full focus:outline-none text-center shadow-xs"
             value={tempValue}
             placeholder="SPO2 %"
             autoFocus
@@ -271,7 +298,7 @@ export default function PatientVitalsHeader({
           />
         ) : (
           <div
-            className={`inline-flex items-center gap-1 h-7 px-2 rounded-full text-xs border cursor-pointer transition-colors whitespace-nowrap ${
+            className={`inline-flex items-center gap-1 h-6 px-1.5 rounded-full text-[11px] border cursor-pointer transition-colors whitespace-nowrap ${
               isLowSpo2()
                 ? 'bg-rose-50 hover:bg-rose-100 border-rose-200 text-rose-700 font-semibold'
                 : 'bg-slate-100 hover:bg-slate-200 border-slate-200/70 text-slate-700'
@@ -280,7 +307,7 @@ export default function PatientVitalsHeader({
             title="Click to edit SPO2"
             data-testid="spo2-vital-badge"
           >
-            <span className="font-bold text-[10px] opacity-70">SPO2</span>
+            <span className="font-bold text-[9px] opacity-70">SPO2</span>
             <strong className="font-semibold">{vitals.spo2_percent || vitals.spo2 || '—'}%</strong>
           </div>
         )}
@@ -289,9 +316,9 @@ export default function PatientVitalsHeader({
         {editingField === 'sugar' ? (
           <input
             type="number"
-            className="w-22 h-7 px-1.5 text-xs font-semibold bg-white border border-teal-500 rounded-full focus:outline-none text-center shadow-xs"
+            className="w-20 h-6 px-1 text-[11px] font-semibold bg-white border border-teal-500 rounded-full focus:outline-none text-center shadow-xs"
             value={tempValue}
-            placeholder="GRBS mg/dL"
+            placeholder="GRBS"
             autoFocus
             onChange={(e) => setTempValue(e.target.value)}
             onBlur={() => saveEdit('grbs_mg_dl', parseInt)}
@@ -300,7 +327,7 @@ export default function PatientVitalsHeader({
           />
         ) : (
           <div
-            className={`inline-flex items-center gap-1 h-7 px-2 rounded-full text-xs border cursor-pointer transition-colors whitespace-nowrap ${
+            className={`inline-flex items-center gap-1 h-6 px-1.5 rounded-full text-[11px] border cursor-pointer transition-colors whitespace-nowrap ${
               isHighSugar()
                 ? 'bg-rose-50 hover:bg-rose-100 border-rose-200 text-rose-700 font-semibold'
                 : 'bg-slate-100 hover:bg-slate-200 border-slate-200/70 text-slate-700'
@@ -309,7 +336,7 @@ export default function PatientVitalsHeader({
             title="Click to edit Blood Sugar (GRBS)"
             data-testid="grbs-vital-badge"
           >
-            <span className="font-bold text-[10px] opacity-70">GRBS</span>
+            <span className="font-bold text-[9px] opacity-70">GRBS</span>
             <strong className="font-semibold">{vitals.grbs_mg_dl || vitals.sugar || '—'}</strong>
           </div>
         )}
@@ -318,7 +345,7 @@ export default function PatientVitalsHeader({
         {editingField === 'rr' ? (
           <input
             type="number"
-            className="w-18 h-7 px-1.5 text-xs font-semibold bg-white border border-teal-500 rounded-full focus:outline-none text-center shadow-xs"
+            className="w-16 h-6 px-1 text-[11px] font-semibold bg-white border border-teal-500 rounded-full focus:outline-none text-center shadow-xs"
             value={tempValue}
             placeholder="RR /min"
             autoFocus
@@ -329,12 +356,12 @@ export default function PatientVitalsHeader({
           />
         ) : (
           <div
-            className="inline-flex items-center gap-1 h-7 px-2 rounded-full text-xs font-medium bg-slate-100 hover:bg-slate-200 border border-slate-200/70 text-slate-700 cursor-pointer transition-colors whitespace-nowrap"
+            className="inline-flex items-center gap-1 h-6 px-1.5 rounded-full text-[11px] font-medium bg-slate-100 hover:bg-slate-200 border border-slate-200/70 text-slate-700 cursor-pointer transition-colors whitespace-nowrap"
             onClick={() => startEdit('rr', vitals.respiratory_rate || vitals.rr)}
             title="Click to edit Respiratory Rate"
             data-testid="vital-badge-rr"
           >
-            <span className="font-bold text-[10px] text-slate-400">RR</span>
+            <span className="font-bold text-[9px] text-slate-400">RR</span>
             <strong className="font-semibold text-slate-900">{vitals.respiratory_rate || vitals.rr || '—'}</strong>
           </div>
         )}
