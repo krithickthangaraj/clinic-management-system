@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_role
 from app.models.user import User
-from app.models.enums import UserRole, TestStatus
+from app.models.enums import UserRole, TestStatus, VisitStatus
 from app.models.visit import Visit
 from app.models.patient import Patient
 from app.models.test import Test
@@ -170,9 +170,11 @@ async def get_lab_queue(
         # Check for existing LabOrder
         lab_order = db.query(LabOrder).filter(LabOrder.visit_id == v.id).first()
         
-        # If visit has no tests ordered and no pending lab order, skip
+        # If visit has tests ordered, status is REPORTS_PENDING, or has pending lab order
         is_pending = False
         if ordered_tests_list:
+            is_pending = True
+        elif str(v.status or "").lower() == VisitStatus.REPORTS_PENDING.value:
             is_pending = True
         elif lab_order and lab_order.status in ["PENDING", "IN_PROGRESS"]:
             is_pending = True
@@ -395,8 +397,9 @@ async def finalize_lab_order(
     lab_order.summary_results = formatted_summary
     lab_order.completed_at = datetime.utcnow()
 
-    # 4. "Close the Loop" -> Automatically update visit.laboratory_reports
+    # 4. "Close the Loop" -> Automatically update visit.laboratory_reports & set status to REPORTS_READY
     visit.laboratory_reports = formatted_summary
+    visit.status = VisitStatus.REPORTS_READY.value
     visit.updated_at = datetime.utcnow()
 
     # 5. Mark Test records for this visit as COMPLETED

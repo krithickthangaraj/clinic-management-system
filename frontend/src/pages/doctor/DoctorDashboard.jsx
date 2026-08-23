@@ -73,9 +73,14 @@ export default function DoctorDashboard() {
     let countRoutine = 0;
     let countEmergency = 0;
     let countFollowup = 0;
+    let countPendingLab = 0;
 
     q.forEach((item) => {
       const c = String(item.category || '').toLowerCase();
+      const s = String(item.status || '').toLowerCase();
+      if (s === 'reports_pending' || s === 'reports_ready' || item.lab_results_ready) {
+        countPendingLab++;
+      }
       if (c.includes('emergen')) {
         countEmergency++;
       } else if (c.includes('follow')) {
@@ -90,6 +95,7 @@ export default function DoctorDashboard() {
       routine: countRoutine,
       emergency: countEmergency,
       'follow-up': countFollowup,
+      'pending-lab': countPendingLab,
     };
   }, [dashboardData.queue]);
 

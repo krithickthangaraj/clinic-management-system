@@ -75,6 +75,23 @@ export default function PrescriptionFooter({
             PENDING
           </button>
 
+          {/* Send to Lab / Hold Button */}
+          <button
+            type="button"
+            className="h-10 px-4 bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 rounded-lg text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer active:scale-95 shrink-0"
+            onClick={() => onAction('send_to_lab')}
+            disabled={saving}
+            data-testid="btn-action-send-to-lab"
+            title="Send patient to lab & put on hold"
+          >
+            <svg className="w-3.5 h-3.5 text-amber-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.07-10.127A2 2 0 0 1 14 9.527V2" />
+              <path d="M8.5 2h7" />
+              <path d="M7 16h10" />
+            </svg>
+            <span>SEND TO LAB / HOLD</span>
+          </button>
+
           {/* Primary Save Button */}
           <button
             type="button"

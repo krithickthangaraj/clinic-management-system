@@ -96,6 +96,10 @@ async def save_full_prescription(
     status_map = {
         "completed": VisitStatus.COMPLETED.value,
         "save": VisitStatus.IN_CONSULTATION.value,
+        "hold": VisitStatus.REPORTS_PENDING.value,
+        "send_to_lab": VisitStatus.REPORTS_PENDING.value,
+        "reports_pending": VisitStatus.REPORTS_PENDING.value,
+        "reports_ready": VisitStatus.REPORTS_READY.value,
         "followup": VisitStatus.CONSULTED.value,
         "reminder": VisitStatus.IN_CONSULTATION.value,
         "pending": VisitStatus.VITALS_DONE.value,
@@ -283,6 +287,7 @@ async def get_full_prescription(
         payment_record = db.query(VisitPayment).filter(VisitPayment.visit_id == visit_id).first()
 
     plan = BillingAndPlanPayload(
+        lab_reports_reviewed=visit.laboratory_reports,
         notes=visit.follow_up_notes,
         advice=clean_advice,
         investigations_next_visit=ordered_tests,

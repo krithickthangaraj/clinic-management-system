@@ -89,7 +89,7 @@ export default function MedicalHistorySidebar({
 
   return (
     <section
-      className="bg-white rounded-xl border border-slate-200/80 shadow-xs overflow-hidden mb-6"
+      className="bg-white rounded-xl border border-slate-200/80 shadow-xs overflow-hidden"
       data-testid="medical-history-card"
     >
       {/* 1. Header Bar with Top Category Alert Badges (Whisper-Light Green) */}

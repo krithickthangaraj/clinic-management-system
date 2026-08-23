@@ -145,6 +145,8 @@ async def get_doctor_dashboard(
                             VisitStatus.REGISTERED.value,
                             VisitStatus.VITALS_DONE.value,
                             VisitStatus.IN_CONSULTATION.value,
+                            VisitStatus.REPORTS_PENDING.value,
+                            VisitStatus.REPORTS_READY.value,
                         ])
                     )
                 )
@@ -172,8 +174,14 @@ async def get_doctor_dashboard(
             # Check completed / dispensed
             if status_val in [VisitStatus.COMPLETED.value, VisitStatus.CONSULTED.value, VisitStatus.DISPENSED.value]:
                 completed_count += 1
-            # Check waiting (vitals_done, registered, in_consultation)
-            elif status_val in [VisitStatus.VITALS_DONE.value, VisitStatus.REGISTERED.value, VisitStatus.IN_CONSULTATION.value]:
+            # Check waiting (vitals_done, registered, in_consultation, reports_pending, reports_ready)
+            elif status_val in [
+                VisitStatus.VITALS_DONE.value,
+                VisitStatus.REGISTERED.value,
+                VisitStatus.IN_CONSULTATION.value,
+                VisitStatus.REPORTS_PENDING.value,
+                VisitStatus.REPORTS_READY.value,
+            ]:
                 waiting_count += 1
 
             # Check not attended (registered, waiting for vitals)
@@ -184,12 +192,12 @@ async def get_doctor_dashboard(
             if v.follow_up_date is not None or (v.follow_up_notes and v.follow_up_notes.strip()):
                 followup_count += 1
             
-            # Check reports pending (ordered or in-progress tests)
+            # Check reports pending (ordered or in-progress tests or reports_pending / reports_ready)
             has_pending_tests = any(
                 t.status in [TestStatus.ORDERED.value, TestStatus.IN_PROGRESS.value]
                 for t in (v.tests or [])
             )
-            if has_pending_tests:
+            if status_val in [VisitStatus.REPORTS_PENDING.value, VisitStatus.REPORTS_READY.value] or has_pending_tests:
                 reports_pending_count += 1
             
             # Dynamic waiting time calculation (frozen if completed)
@@ -216,6 +224,9 @@ async def get_doctor_dashboard(
                 remarks_text = v.chief_complaints
             
             cat = determine_category(v, patient_obj)
+            is_lab_ready = (status_val == VisitStatus.REPORTS_READY.value) or (
+                status_val == VisitStatus.REPORTS_PENDING.value and bool(v.laboratory_reports)
+            )
             
             queue_items.append(
                 QueuePatientItem(
@@ -234,6 +245,8 @@ async def get_doctor_dashboard(
                     remarks=remarks_text,
                     status=v.status,
                     consultant_assigned=v.consultant_assigned,
+                    lab_results_ready=is_lab_ready,
+                    laboratory_reports=v.laboratory_reports,
                     created_at=v.created_at,
                 )
             )

@@ -198,7 +198,12 @@ export default function Consultation() {
       const validMedicines = medicines.filter(
         (m) => m.drug_name && m.drug_name.trim()
       );
-      if (validMedicines.length === 0 && actionType !== 'not_visited') {
+      if (
+        validMedicines.length === 0 &&
+        actionType !== 'not_visited' &&
+        actionType !== 'send_to_lab' &&
+        actionType !== 'hold'
+      ) {
         setErrorMessage('Please add at least one medication to the prescription.');
         setSaving(false);
         return;
@@ -233,6 +238,11 @@ export default function Consultation() {
 
       if (actionType === 'print') {
         setShowPrescription(true);
+      } else if (actionType === 'send_to_lab' || actionType === 'hold') {
+        setSuccessToast('Patient sent to Laboratory & placed on Hold. Unblocking Doctor Queue...');
+        setTimeout(() => {
+          navigate('/doctor/queue');
+        }, 900);
       } else {
         setSuccessToast(`Prescription saved successfully (${result.status})`);
         setTimeout(() => {
@@ -398,6 +408,7 @@ export default function Consultation() {
         <PostPrescriptionRows
           planAndBilling={planAndBilling}
           totalAmount={totalAmount}
+          laboratoryReports={visit?.laboratory_reports || planAndBilling?.lab_reports_reviewed || ''}
           onChange={setPlanAndBilling}
           onAddInvestigation={addInvestigationTag}
           onRemoveInvestigation={removeInvestigationTag}

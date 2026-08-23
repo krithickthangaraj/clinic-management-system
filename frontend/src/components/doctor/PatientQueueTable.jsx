@@ -8,6 +8,7 @@ const CATEGORY_TABS = [
   { id: 'routine', label: 'Routine' },
   { id: 'emergency', label: 'Emergency' },
   { id: 'follow-up', label: 'Follow-up' },
+  { id: 'pending-lab', label: 'Pending Lab Reports' },
 ];
 
 export function getCategoryBadgeClass(cat) {
@@ -15,6 +16,7 @@ export function getCategoryBadgeClass(cat) {
   if (c.includes('follow')) return 'category-badge-followup';
   if (c.includes('emergen')) return 'category-badge-emergency';
   if (c.includes('review')) return 'category-badge-review';
+  if (c.includes('lab')) return 'category-badge-lab';
   return 'category-badge-opd';
 }
 
@@ -37,7 +39,9 @@ export default function PatientQueueTable({
     // 1. Filter by KPI status (from DashboardKPIs cards)
     if (activeKpiFilter === 'waiting') {
       list = list.filter((p) =>
-        ['vitals_done', 'registered', 'in_consultation'].includes(String(p.status).toLowerCase())
+        ['vitals_done', 'registered', 'in_consultation', 'reports_pending', 'reports_ready'].includes(
+          String(p.status).toLowerCase()
+        )
       );
     } else if (activeKpiFilter === 'followup') {
       list = list.filter((p) =>
@@ -45,12 +49,14 @@ export default function PatientQueueTable({
       );
     } else if (activeKpiFilter === 'reports_pending') {
       list = list.filter((p) =>
+        ['reports_pending', 'reports_ready'].includes(String(p.status || '').toLowerCase()) ||
+        p.lab_results_ready ||
         String(p.status || '').toLowerCase().includes('report') ||
         String(p.remarks || '').toLowerCase().includes('lab')
       );
     } else if (activeKpiFilter === 'completed') {
       list = list.filter((p) =>
-        ['consulted', 'completed'].includes(String(p.status).toLowerCase())
+        ['consulted', 'completed', 'dispensed'].includes(String(p.status).toLowerCase())
       );
     }
 
@@ -69,6 +75,13 @@ export default function PatientQueueTable({
       } else if (catKey === 'follow-up' || catKey === 'followup') {
         list = list.filter((p) =>
           String(p.category || '').toLowerCase().includes('follow')
+        );
+      } else if (catKey === 'pending-lab' || catKey === 'lab') {
+        list = list.filter((p) =>
+          ['reports_pending', 'reports_ready'].includes(String(p.status || '').toLowerCase()) ||
+          p.lab_results_ready ||
+          String(p.category || '').toLowerCase().includes('lab') ||
+          String(p.remarks || '').toLowerCase().includes('lab')
         );
       }
     }
@@ -269,10 +282,24 @@ export default function PatientQueueTable({
 
                     {/* 2. Patient Name */}
                     <td className="td-name font-semibold text-slate-900">
-                      <div className="patient-name-cell">
+                      <div className="patient-name-cell flex items-center gap-1.5 flex-wrap">
                         <span>{patient.patient_name}</span>
                         {patient.status === 'in_consultation' && (
                           <span className="live-pulse-badge">With Doctor</span>
+                        )}
+                        {(patient.lab_results_ready || patient.status === 'reports_ready') && (
+                          <span className="lab-ready-pulse-badge" title="Lab investigations completed & results ready for review">
+                            <span className="pulse-dot" />
+                            <svg className="w-3 h-3 text-rose-600 inline mr-0.5" viewBox="0 0 20 20" fill="currentColor">
+                              <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
+                            </svg>
+                            <span>Lab Results Ready</span>
+                          </span>
+                        )}
+                        {patient.status === 'reports_pending' && (
+                          <span className="lab-pending-badge" title="Patient at laboratory for investigation processing">
+                            <span>At Lab / Hold</span>
+                          </span>
                         )}
                       </div>
                     </td>

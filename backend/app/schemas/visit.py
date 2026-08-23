@@ -55,6 +55,7 @@ class VisitResponse(BaseModel):
     patient_gender: Optional[str] = None
     patient_phone: Optional[str] = None
     consultant_assigned: Optional[str] = None
+    laboratory_reports: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -85,6 +86,8 @@ class QueuePatientItem(BaseModel):
     remarks: Optional[str] = None
     status: str
     consultant_assigned: Optional[str] = None
+    lab_results_ready: bool = False
+    laboratory_reports: Optional[str] = None
     created_at: datetime
 
 

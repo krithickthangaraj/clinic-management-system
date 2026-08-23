@@ -64,6 +64,7 @@ export default function RXMedicationTable({
   onApplyMasterDrug = () => {},
   onToast = () => {},
 }) {
+  const [isOpen, setIsOpen] = useState(true);
   const [masterMedicines, setMasterMedicines] = useState([]);
   const [activeSearchIndex, setActiveSearchIndex] = useState(null);
   const [activeSearchField, setActiveSearchField] = useState(null); // 'brand' | 'drug'
@@ -138,45 +139,51 @@ export default function RXMedicationTable({
   };
 
   const handleSelectMasterDrug = (index, masterDrug) => {
-    onApplyMasterDrug(index, masterDrug);
-    setSearchResults([]);
+    if (onApplyMasterDrug) {
+      onApplyMasterDrug(index, masterDrug);
+    } else {
+      onUpdateDrug(index, 'brand_name', masterDrug.brand_name || '');
+      onUpdateDrug(index, 'drug_name', masterDrug.drug_name || '');
+      if (masterDrug.dosage) onUpdateDrug(index, 'dosage', masterDrug.dosage);
+      if (masterDrug.frequency) onUpdateDrug(index, 'frequency', masterDrug.frequency);
+      if (masterDrug.number_of_days) onUpdateDrug(index, 'days', masterDrug.number_of_days);
+      if (masterDrug.instructions) onUpdateDrug(index, 'instructions', masterDrug.instructions);
+    }
     setActiveSearchIndex(null);
     setActiveSearchField(null);
+    setSearchResults([]);
   };
 
   // Inline "Save to Master" Action
-  const handleSaveToMaster = async (index, row) => {
-    const brand = (row.brand_name || '').trim();
-    const drug = (row.drug_name || '').trim();
-
-    if (!brand || !drug) {
-      alert('Please enter both a Brand Name and Generic Drug Name to save to Medicine Master.');
+  const handleSaveToMaster = async (drug, index) => {
+    if (!drug.drug_name || !drug.drug_name.trim()) {
+      alert('Drug Name is required to save as Master default template.');
       return;
     }
-
     setSavingIndex(index);
     try {
       const payload = {
-        brand_name: brand,
-        drug_name: drug,
-        category: row.category || 'Tablet',
-        default_dosage: row.dosage || '1 Tab',
-        default_frequency: row.frequency || 'TDS (1-1-1)',
-        default_days: parseInt(row.days, 10) || 3,
-        default_instructions: row.instructions || '',
+        brand_name: drug.brand_name?.trim() || null,
+        drug_name: drug.drug_name.trim(),
+        dosage: drug.dosage || '1 Tab',
+        frequency: drug.frequency || 'TDS (1-1-1)',
+        number_of_days: parseInt(drug.days || 5, 10),
+        instructions: drug.instructions || 'After food',
+        quantity: parseInt(drug.quantity || 15, 10),
       };
-      await medicineService.saveMedicineMaster(payload);
+      await medicineService.createMedicineMaster(payload);
       setSavedSuccessIndex(index);
-      onToast?.(`'${brand}' saved to Medicine Master templates!`);
+      onToast(`Saved "${drug.brand_name || drug.drug_name}" to Global Medicine Master!`);
 
       // Refresh local master list
       const refreshed = await medicineService.searchMedicineMaster('');
-      setMasterMedicines(refreshed);
-
-      setTimeout(() => setSavedSuccessIndex(null), 3000);
+      if (Array.isArray(refreshed)) {
+        setMasterMedicines(refreshed);
+      }
+      setTimeout(() => setSavedSuccessIndex(null), 2500);
     } catch (err) {
       console.error('Failed to save to master:', err);
-      alert('Failed to save medicine to master. Please try again.');
+      alert(err.response?.data?.detail || 'Failed to save template to Medicine Master.');
     } finally {
       setSavingIndex(null);
     }
@@ -191,10 +198,8 @@ export default function RXMedicationTable({
 
   const handleDragOver = (e, index) => {
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    if (dragOverIndex !== index) {
-      setDragOverIndex(index);
-    }
+    if (draggedIndex === null || draggedIndex === index) return;
+    setDragOverIndex(index);
   };
 
   const handleDrop = (e, targetIndex) => {
@@ -213,56 +218,86 @@ export default function RXMedicationTable({
 
   return (
     <section
-      className="bg-white rounded-xl border border-slate-200/80 shadow-xs p-5 space-y-3.5 mb-6"
+      className="bg-white rounded-xl border border-slate-200/80 shadow-xs overflow-hidden"
       data-testid="rx-medication-section"
     >
       {/* 1. Header Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
-        <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-teal-50 border border-teal-200/70 text-teal-800 font-serif font-bold text-sm flex items-center justify-center shadow-2xs">
+      <div
+        className="px-5 py-3.5 bg-slate-50/70 hover:bg-slate-50 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3 cursor-pointer select-none transition-colors"
+        onClick={() => setIsOpen(!isOpen)}
+        role="button"
+        tabIndex={0}
+        aria-expanded={isOpen}
+      >
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <div className="w-6 h-6 rounded-lg bg-teal-50 border border-teal-200/70 text-teal-800 font-serif font-bold text-xs flex items-center justify-center shadow-2xs">
             ℞
           </div>
           <div>
             <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
               Prescription Medication &amp; Regimen
             </h3>
-            <p className="text-[11px] text-slate-500 font-normal">
-              Type drug name for <strong>Magic Auto-Fill</strong> defaults &bull; Click bookmark to save custom templates
-            </p>
           </div>
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-teal-50 text-teal-800 border border-teal-200/70 shadow-2xs">
+            {medicines.length} Medicine{medicines.length !== 1 ? 's' : ''}
+          </span>
         </div>
 
-        {/* Top-Right Add Button */}
-        <button
-          type="button"
-          className="h-8 px-3.5 bg-teal-700 hover:bg-teal-800 text-white rounded-lg text-xs font-semibold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer shrink-0 active:scale-95"
-          onClick={() => onAddDrug()}
-          data-testid="btn-add-drug-top"
-        >
-          <svg
-            className="w-3.5 h-3.5"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+          {/* Top-Right Add Button */}
+          <button
+            type="button"
+            className="h-8 px-3.5 bg-teal-700 hover:bg-teal-800 text-white rounded-lg text-xs font-semibold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer shrink-0 active:scale-95"
+            onClick={() => onAddDrug()}
+            data-testid="btn-add-drug-top"
           >
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-          <span>Add Medicine</span>
-        </button>
+            <svg
+              className="w-3.5 h-3.5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            <span>Add Medicine</span>
+          </button>
+
+          {/* Toggle Chevron Arrow Button */}
+          <button
+            type="button"
+            className="text-slate-400 hover:text-slate-600 p-1 rounded-md transition-colors flex items-center justify-center cursor-pointer shrink-0"
+            onClick={() => setIsOpen(!isOpen)}
+            aria-label="Toggle medications panel"
+          >
+            <svg
+              className={`w-4 h-4 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+        </div>
       </div>
 
-      {/* 2. Responsive Rigid Medication Grid Table */}
-      <div className="overflow-x-auto rounded-lg border border-slate-200 shadow-2xs" ref={dropdownRef}>
-        <table className="w-full text-left border-collapse min-w-[1020px]">
-          <thead>
-            <tr className="bg-slate-50/90 border-b border-slate-200 text-[11px] font-bold text-slate-700 uppercase tracking-wider select-none">
-              <th className="py-2.5 px-3 w-12 text-center">S.No</th>
-              <th className="py-2.5 px-3 w-48">Brand Name</th>
-              <th className="py-2.5 px-3 min-w-[190px]">Drug Name</th>
+      {isOpen && (
+        <div className="p-5 space-y-3.5">
+          {/* 2. Responsive Rigid Medication Grid Table */}
+          <div className="overflow-x-auto rounded-lg border border-slate-200 shadow-2xs" ref={dropdownRef}>
+            <table className="w-full text-left border-collapse min-w-[1020px]">
+              <thead>
+                <tr className="bg-slate-50/90 border-b border-slate-200 text-[11px] font-bold text-slate-700 uppercase tracking-wider select-none">
+                  <th className="py-2.5 px-3 w-12 text-center">S.No</th>
+                  <th className="py-2.5 px-3 w-48">Brand Name</th>
+                  <th className="py-2.5 px-3 min-w-[190px]">Drug Name</th>
               <th className="py-2.5 px-3 w-28">Dosage</th>
               <th className="py-2.5 px-3 w-36">Frequency</th>
               <th className="py-2.5 px-3 w-20 text-center">Days</th>
@@ -622,6 +657,8 @@ export default function RXMedicationTable({
           </tfoot>
         </table>
       </div>
+      </div>
+      )}
     </section>
   );
 }

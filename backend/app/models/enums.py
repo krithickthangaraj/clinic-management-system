@@ -47,6 +47,8 @@ class VisitStatus(str, Enum):
     REGISTERED = "registered"  # Just registered, waiting for vitals
     VITALS_DONE = "vitals_done"  # Vitals entered, waiting for doctor
     IN_CONSULTATION = "in_consultation"  # Doctor is seeing
+    REPORTS_PENDING = "reports_pending"  # Doctor ordered tests, patient on hold awaiting lab results
+    REPORTS_READY = "reports_ready"  # Lab results finalized, ready for doctor review
     CONSULTED = "consulted"  # Consultation complete
     COMPLETED = "completed"  # Prescription printed, visit complete
     DISPENSED = "dispensed"  # Pharmacy dispensed medication

@@ -20,6 +20,7 @@ export default function ClinicalAssessmentForm({
   },
   onChange = () => {},
 }) {
+  const [isOpen, setIsOpen] = useState(true);
   const [complaintInput, setComplaintInput] = useState('');
   const [diagnosisInput, setDiagnosisInput] = useState('');
 
@@ -80,19 +81,55 @@ export default function ClinicalAssessmentForm({
 
   return (
     <section
-      className="bg-white rounded-xl border border-slate-200/80 shadow-xs p-5 mb-6"
+      className="bg-white rounded-xl border border-slate-200/80 shadow-xs overflow-hidden"
       data-testid="clinical-assessment-card"
     >
-      <div className="flex items-center justify-between mb-3.5 pb-2 border-b border-slate-100">
-        <div className="flex items-center gap-2">
+      <div
+        className="px-5 py-3.5 bg-slate-50/70 hover:bg-slate-50 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none transition-colors"
+        onClick={() => setIsOpen(!isOpen)}
+        role="button"
+        tabIndex={0}
+        aria-expanded={isOpen}
+      >
+        <div className="flex items-center gap-2.5 flex-wrap">
           <span className="w-2 h-2 rounded-full bg-teal-600"></span>
-          <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
+          <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
             Clinical Assessment &amp; Findings
           </h3>
+          {(assessment.complaints || []).length > 0 && (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-teal-50 text-teal-800 border border-teal-200/70 shadow-2xs">
+              {(assessment.complaints || []).length} Complaint{(assessment.complaints || []).length > 1 ? 's' : ''}
+            </span>
+          )}
+          {(assessment.diagnosis || []).length > 0 && (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/70 shadow-2xs">
+              {(assessment.diagnosis || []).length} Diagnosis
+            </span>
+          )}
         </div>
+
+        <button
+          type="button"
+          className="text-slate-400 hover:text-slate-600 p-1 rounded-md transition-colors flex items-center justify-center cursor-pointer shrink-0"
+          aria-label="Toggle clinical assessment panel"
+        >
+          <svg
+            className={`w-4 h-4 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+      {isOpen && (
+        <div className="p-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
         {/* =========================================================================
             LEFT COLUMN: Complaints & Compact Duration
            ========================================================================= */}
@@ -250,6 +287,8 @@ export default function ClinicalAssessmentForm({
           </div>
         </div>
       </div>
+      </div>
+      )}
     </section>
   );
 }
