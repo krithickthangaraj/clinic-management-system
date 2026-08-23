@@ -1,6 +1,8 @@
 import unittest
 from datetime import datetime, timedelta, date, time
-from app.core.database import SessionLocal
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from app.core.database import Base
 from app.models.enums import UserRole, VisitStatus
 from app.models.patient import Patient
 from app.models.visit import Visit
@@ -9,8 +11,14 @@ from app.api.v1.endpoints.doctor import calculate_waiting_time, format_age_sex, 
 
 
 class TestDoctorDashboardAPI(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+        Base.metadata.create_all(bind=cls.engine)
+        cls.Session = sessionmaker(autocommit=False, autoflush=False, bind=cls.engine)
+
     def setUp(self):
-        self.db = SessionLocal()
+        self.db = self.Session()
 
     def tearDown(self):
         self.db.close()

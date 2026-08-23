@@ -1,9 +1,11 @@
 import unittest
 from datetime import date
 from pydantic import ValidationError
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from app.core.database import Base
 from app.schemas.patient import PatientCreate, PatientRegistrationPayload, PatientResponse
 from app.schemas.vitals import VitalsCreate, VitalsResponse
-from app.core.database import SessionLocal
 from app.services.patient_service import generate_patient_id, register_patient_with_visit
 
 
@@ -70,7 +72,10 @@ class TestPatientRegistrationModule(unittest.TestCase):
             VitalsCreate(visit_id=1, spo2_percent=105)
 
     def test_patient_id_generation(self):
-        db = SessionLocal()
+        engine = create_engine("sqlite:///:memory:")
+        Base.metadata.create_all(bind=engine)
+        Session = sessionmaker(bind=engine)
+        db = Session()
         try:
             pat_id = generate_patient_id(db)
             self.assertTrue(pat_id.startswith("PAT-"))

@@ -169,12 +169,16 @@ async def get_doctor_dashboard(
         for idx, v in enumerate(visits, start=1):
             status_val = str(v.status or "").lower()
             
-            # Check completed
-            if status_val in [VisitStatus.COMPLETED.value, VisitStatus.CONSULTED.value]:
+            # Check completed / dispensed
+            if status_val in [VisitStatus.COMPLETED.value, VisitStatus.CONSULTED.value, VisitStatus.DISPENSED.value]:
                 completed_count += 1
             # Check waiting (vitals_done, registered, in_consultation)
             elif status_val in [VisitStatus.VITALS_DONE.value, VisitStatus.REGISTERED.value, VisitStatus.IN_CONSULTATION.value]:
                 waiting_count += 1
+
+            # Check not attended (registered, waiting for vitals)
+            if status_val == VisitStatus.REGISTERED.value:
+                not_attended_count += 1
             
             # Check follow-up
             if v.follow_up_date is not None or (v.follow_up_notes and v.follow_up_notes.strip()):
