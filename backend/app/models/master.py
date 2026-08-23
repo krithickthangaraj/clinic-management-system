@@ -30,11 +30,5 @@ class DoctorAdviceMaster(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
-class LabTestMaster(Base):
-    __tablename__ = "lab_tests_master"
-
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, nullable=False, index=True)
-    test_type = Column(String, nullable=False)  # 'Lab' or 'Radiology'
-    is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+# Re-export LabTestMaster from lab module
+from app.models.lab import LabTestMaster

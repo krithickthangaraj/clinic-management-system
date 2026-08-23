@@ -6,7 +6,10 @@ from app.models.prescription import Prescription, PrescriptionDrug
 from app.models.test import Test
 from app.models.template import Template
 from app.models.master import (
-    ChiefComplaintMaster, DiagnosisMaster, DoctorAdviceMaster, LabTestMaster
+    ChiefComplaintMaster, DiagnosisMaster, DoctorAdviceMaster
+)
+from app.models.lab import (
+    LabTestMaster, LabOrder, LabResult
 )
 from app.models.medicine import (
     MedicineDrug, MedicineBrand, MedicineType, MedicineDosage, MedicineMaster
@@ -31,6 +34,8 @@ __all__ = [
     "DiagnosisMaster",
     "DoctorAdviceMaster",
     "LabTestMaster",
+    "LabOrder",
+    "LabResult",
     "PatientAllergyHistory",
     "PatientFamilyHistory",
     "PatientSurgicalHistory",

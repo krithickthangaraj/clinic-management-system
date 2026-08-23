@@ -19,6 +19,7 @@ class Visit(Base):
     chief_complaints = Column(Text, nullable=True)  # JSON array of strings
     diagnosis = Column(String, nullable=True)
     advice = Column(Text, nullable=True)
+    laboratory_reports = Column(Text, nullable=True)  # Summary string e.g. "Hb: 11.3 g/dL, Creat: 0.65 mg/dL"
     follow_up_date = Column(DateTime(timezone=True), nullable=True)
     follow_up_notes = Column(Text, nullable=True)
     

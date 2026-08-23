@@ -17,6 +17,7 @@ import Consultation from './pages/doctor/Consultation';
 import DoctorDashboard from './pages/doctor/DoctorDashboard';
 import DoctorQueue from './pages/doctor/DoctorQueue';
 import TemplateEdit from './pages/doctor/TemplateEdit';
+import LabDashboard from './pages/lab/LabDashboard';
 import PendingTests from './pages/lab/PendingTests';
 import Login from './pages/Login';
 import PatientRegistration from './pages/reception/PatientRegistration';
@@ -90,11 +91,21 @@ function App() {
               }
             />
             <Route
+              path="/lab"
+              element={
+                <ProtectedRoute allowedRoles={['lab', 'admin', 'doctor']}>
+                  <AppLayout>
+                    <LabDashboard />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/lab/tests"
               element={
-                <ProtectedRoute allowedRoles={['lab', 'admin']}>
+                <ProtectedRoute allowedRoles={['lab', 'admin', 'doctor']}>
                   <AppLayout>
-                    <PendingTests />
+                    <LabDashboard />
                   </AppLayout>
                 </ProtectedRoute>
               }

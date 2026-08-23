@@ -93,10 +93,21 @@ export default function Consultation() {
               setPlanAndBilling((prev) => ({
                 ...prev,
                 ...pData.plan_and_billing,
+                lab_reports_reviewed: pData.plan_and_billing.lab_reports_reviewed || visitData.laboratory_reports || '',
               }));
+          } else if (visitData.laboratory_reports) {
+            setPlanAndBilling((prev) => ({
+              ...prev,
+              lab_reports_reviewed: visitData.laboratory_reports,
+            }));
           }
         } catch {
-          // No prior prescription
+          if (visitData.laboratory_reports) {
+            setPlanAndBilling((prev) => ({
+              ...prev,
+              lab_reports_reviewed: visitData.laboratory_reports,
+            }));
+          }
         }
         // Calculate actual patient waiting time (frozen for completed patients)
         const calcWait = (v) => {

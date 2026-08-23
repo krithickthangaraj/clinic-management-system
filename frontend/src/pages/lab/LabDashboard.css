@@ -1,0 +1,322 @@
+/* ==========================================================================
+   LABORATORY DASHBOARD - Next-Gen Clinical Design System
+   ========================================================================== */
+
+:root {
+  --lab-bg: #f8fafc;
+  --lab-card-bg: #ffffff;
+  --lab-border: #e2e8f0;
+  --lab-border-subtle: #f1f5f9;
+  --lab-text-main: #0f172a;
+  --lab-text-muted: #64748b;
+  --lab-primary: #0f766e;
+  --lab-primary-hover: #115e59;
+  --lab-primary-light: #f0fdfa;
+  --lab-danger: #e11d48;
+  --lab-shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.03);
+  --lab-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.lab-dashboard-layout {
+  min-height: 100vh;
+  background-color: var(--lab-bg);
+  display: flex;
+  flex-direction: column;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: var(--lab-text-main);
+}
+
+.lab-dashboard-main {
+  flex: 1;
+  padding: 1.25rem 1.75rem 3.5rem 1.75rem;
+}
+
+.lab-content-max {
+  max-width: 1560px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+}
+
+/* Header */
+.lab-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.25rem 0 0.5rem 0;
+}
+
+.lab-title-zone {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.lab-icon-box {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background-color: #f0fdfa;
+  border: 1px solid #ccfbf1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--lab-primary);
+  flex-shrink: 0;
+}
+
+.lab-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--lab-text-main);
+  letter-spacing: -0.02em;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.lab-subtitle {
+  font-size: 0.75rem;
+  color: var(--lab-text-muted);
+  margin-top: 0.15rem;
+}
+
+/* Tabs */
+.lab-tab-segmented {
+  display: inline-flex;
+  background-color: #e2e8f0;
+  padding: 3px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+}
+
+.lab-tab-btn {
+  padding: 0.35rem 0.85rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.lab-tab-btn.active {
+  background-color: #ffffff;
+  color: var(--lab-primary);
+  font-weight: 700;
+  box-shadow: var(--lab-shadow-xs);
+}
+
+/* KPI Cards */
+.lab-kpis-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.85rem;
+}
+
+@media (max-width: 1024px) {
+  .lab-kpis-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.lab-kpi-card {
+  background: #ffffff;
+  border: 1px solid var(--lab-border);
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+  box-shadow: var(--lab-shadow-xs);
+  border-top-width: 3px;
+}
+
+.kpi-teal { border-top-color: #0f766e; }
+.kpi-blue { border-top-color: #0284c7; }
+.kpi-rose { border-top-color: #e11d48; }
+.kpi-amber { border-top-color: #d97706; }
+
+.lab-kpi-title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--lab-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.lab-kpi-val {
+  font-size: 1.35rem;
+  font-weight: 800;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  margin-top: 0.25rem;
+}
+
+/* Main Panel & Dense Table */
+.lab-panel {
+  background: #ffffff;
+  border: 1px solid var(--lab-border);
+  border-radius: 10px;
+  box-shadow: var(--lab-shadow-xs);
+  overflow: hidden;
+}
+
+.lab-panel-header {
+  padding: 0.75rem 1rem;
+  background-color: #f8fafc;
+  border-bottom: 1px solid var(--lab-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.lab-dense-table-wrapper {
+  overflow-x: auto;
+}
+
+.lab-dense-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.8125rem;
+  min-width: 980px;
+}
+
+.lab-dense-table th {
+  background-color: #f8fafc;
+  padding: 0.6rem 0.85rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--lab-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--lab-border);
+  white-space: nowrap;
+}
+
+.lab-dense-table td {
+  padding: 0.65rem 0.85rem;
+  border-bottom: 1px solid var(--lab-border-subtle);
+  vertical-align: middle;
+}
+
+.lab-dense-table tbody tr:hover {
+  background-color: #f8fafc;
+}
+
+.lab-token-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  background-color: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-weight: 700;
+  color: #1e293b;
+  font-size: 0.75rem;
+}
+
+.lab-btn-process {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #ffffff;
+  background-color: var(--lab-primary);
+  border: 1px solid var(--lab-primary);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.lab-btn-process:hover {
+  background-color: var(--lab-primary-hover);
+}
+
+/* Modal - Results Entry */
+.lab-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(3px);
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.lab-modal-card {
+  background: #ffffff;
+  border-radius: 10px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15);
+  width: 100%;
+  max-width: 960px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--lab-border);
+}
+
+.lab-modal-header {
+  padding: 0.85rem 1.25rem;
+  background-color: #0f172a;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.lab-modal-body {
+  padding: 1.25rem;
+  overflow-y: auto;
+  background-color: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.lab-modal-footer {
+  padding: 0.85rem 1.25rem;
+  background-color: #ffffff;
+  border-top: 1px solid var(--lab-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Smart Anomaly Input */
+.lab-input-normal {
+  background-color: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #0f172a;
+}
+
+.lab-input-abnormal {
+  background-color: #fff1f2 !important;
+  border: 1.5px solid #f43f5e !important;
+  color: #9f1239 !important;
+  font-weight: 700 !important;
+}
+
+.lab-badge-normal {
+  background-color: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+}
+
+.lab-badge-abnormal {
+  background-color: #fff1f2;
+  border: 1px solid #fecdd3;
+  color: #e11d48;
+  font-weight: 700;
+}
