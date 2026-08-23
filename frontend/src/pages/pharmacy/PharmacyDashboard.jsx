@@ -576,26 +576,28 @@ export default function PharmacyDashboard() {
           {/* 4. TAB 2: Inventory Management Dashboard (Full CRUD) */}
           {activeTab === 'inventory' && (
             <div className="pharmacy-main-panel">
-              <div className="pharmacy-panel-header flex-wrap">
-                {/* Left: Search & Filter Controls */}
-                <div className="flex items-center gap-2.5 flex-wrap">
-                  <div className="relative w-72">
+              <div className="pharmacy-panel-header flex items-center justify-between gap-3 overflow-x-auto">
+                {/* Left: Search & Filter Controls in One Single Horizontal Line */}
+                <div className="flex items-center gap-1.5 shrink-0 flex-nowrap">
+                  <div className="relative w-44 sm:w-56 shrink-0">
                     <input
                       type="text"
-                      placeholder="Search Brand, Drug, or Batch #..."
-                      className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-md focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal-600"
+                      placeholder="Search Drug / Batch..."
+                      className="w-full h-8 pl-7 pr-2 text-[11px] bg-slate-50 border border-slate-300 rounded-md focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal-600 shadow-2xs"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                     />
-                    <svg className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" viewBox="0 0 20 20" fill="currentColor">
+                    <svg className="w-3 h-3 text-slate-400 absolute left-2 top-2.5" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
                     </svg>
                   </div>
 
                   <select
-                    className="px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-md text-slate-700 font-medium"
+                    className="w-24 sm:w-26 h-8 px-1.5 py-1 text-[11px] bg-white border border-slate-300 rounded-md text-slate-700 font-semibold shrink-0 truncate focus:outline-none focus:ring-1 focus:ring-teal-600 cursor-pointer shadow-2xs"
                     value={categoryFilter}
                     onChange={(e) => setCategoryFilter(e.target.value)}
+                    data-testid="filter-inventory-forms"
+                    title="Filter by Dosage Form"
                   >
                     <option value="all">All Forms</option>
                     <option value="Tablet">Tablets</option>
@@ -607,22 +609,24 @@ export default function PharmacyDashboard() {
                   </select>
 
                   <select
-                    className="px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-md text-slate-700 font-medium"
+                    className="w-26 sm:w-28 h-8 px-1.5 py-1 text-[11px] bg-white border border-slate-300 rounded-md text-slate-700 font-semibold shrink-0 truncate focus:outline-none focus:ring-1 focus:ring-teal-600 cursor-pointer shadow-2xs"
                     value={stockStatusFilter}
                     onChange={(e) => setStockStatusFilter(e.target.value)}
+                    data-testid="filter-inventory-status"
+                    title="Filter by Stock Status"
                   >
-                    <option value="all">All Statuses</option>
-                    <option value="low_stock">Low Stock (≤ Reorder)</option>
-                    <option value="out_of_stock">Out of Stock (0)</option>
-                    <option value="near_expiry">Near Expiry (&lt;30d)</option>
+                    <option value="all">All Status</option>
+                    <option value="low_stock">Low Stock</option>
+                    <option value="out_of_stock">Out of Stock</option>
+                    <option value="near_expiry">Near Expiry</option>
                   </select>
                 </div>
 
                 {/* Right: Primary Action Buttons */}
-                <div className="pharmacy-inventory-actions">
+                <div className="pharmacy-inventory-actions flex items-center gap-2 shrink-0 flex-nowrap">
                   <button
                     type="button"
-                    className="pharmacy-btn-secondary-grn"
+                    className="pharmacy-btn-secondary-grn whitespace-nowrap"
                     onClick={() => handleOpenReceiveModal()}
                   >
                     <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -633,7 +637,7 @@ export default function PharmacyDashboard() {
 
                   <button
                     type="button"
-                    className="pharmacy-btn-primary-add"
+                    className="pharmacy-btn-primary-add whitespace-nowrap"
                     onClick={() => setShowAddModal(true)}
                   >
                     <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
