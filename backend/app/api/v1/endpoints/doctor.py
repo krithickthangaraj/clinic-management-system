@@ -57,7 +57,7 @@ def calculate_waiting_time(
     end_time: Optional[datetime] = None,
     status: Optional[str] = None,
 ) -> tuple[str, int]:
-    """Calculate elapsed waiting time string and total minutes from visit created_at."""
+    """Calculate elapsed waiting time string and total minutes from visit created_at safely across timezones."""
     if not created_at:
         return "0 min", 0
     
@@ -68,8 +68,18 @@ def calculate_waiting_time(
             finish_dt = finish_dt.replace(tzinfo=created_at.tzinfo)
         diff = finish_dt - created_at
     else:
-        now = datetime.now(created_at.tzinfo) if created_at.tzinfo else datetime.now()
-        diff = now - created_at
+        if created_at.tzinfo:
+            now = datetime.now(created_at.tzinfo)
+            diff = now - created_at
+        else:
+            # Naive created_at: handle both UTC and local server storage without skew
+            now_utc = datetime.utcnow()
+            now_local = datetime.now()
+            diff_utc = (now_utc - created_at).total_seconds()
+            diff_local = (now_local - created_at).total_seconds()
+            valid_diffs = [d for d in [diff_utc, diff_local] if d >= 0]
+            diff_sec = min(valid_diffs) if valid_diffs else max(0, max(diff_utc, diff_local))
+            diff = timedelta(seconds=diff_sec)
 
     total_seconds = max(0, diff.total_seconds())
     total_minutes = int(total_seconds // 60)

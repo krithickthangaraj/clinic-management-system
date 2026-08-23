@@ -51,11 +51,17 @@ class PatientCreate(BaseModel):
         values["phone"] = clean_phone
         values["phone_number"] = clean_phone
 
-        # Handle age sync
-        if values.get("age") is not None and values.get("age_years") is None:
-            values["age_years"] = int(values["age"])
-        elif values.get("age_years") is not None and values.get("age") is None:
-            values["age"] = int(values["age_years"])
+        # Handle age sync & non-negative validation
+        if values.get("age") is not None:
+            if int(values["age"]) < 0:
+                raise ValueError("Age cannot be negative")
+            if values.get("age_years") is None:
+                values["age_years"] = int(values["age"])
+        elif values.get("age_years") is not None:
+            if int(values["age_years"]) < 0:
+                raise ValueError("Age cannot be negative")
+            if values.get("age") is None:
+                values["age"] = int(values["age_years"])
 
         # Handle gender normalization
         g = str(values.get("gender", "Male")).capitalize()
@@ -172,11 +178,17 @@ class PatientRegistrationPayload(BaseModel):
         values["phone"] = clean_phone
         values["phone_number"] = clean_phone
 
-        # Handle age sync
-        if values.get("age") is not None and values.get("age_years") is None:
-            values["age_years"] = int(values["age"])
-        elif values.get("age_years") is not None and values.get("age") is None:
-            values["age"] = int(values["age_years"])
+        # Handle age sync & non-negative validation
+        if values.get("age") is not None:
+            if int(values["age"]) < 0:
+                raise ValueError("Age cannot be negative")
+            if values.get("age_years") is None:
+                values["age_years"] = int(values["age"])
+        elif values.get("age_years") is not None:
+            if int(values["age_years"]) < 0:
+                raise ValueError("Age cannot be negative")
+            if values.get("age") is None:
+                values["age"] = int(values["age_years"])
 
         # Handle gender normalization
         g = str(values.get("gender", "Male")).capitalize()
