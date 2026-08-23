@@ -52,6 +52,8 @@ function App() {
                 </ProtectedRoute>
               }
             />
+            <Route path="/reception" element={<Navigate to="/reception/register" replace />} />
+            <Route path="/reception/opd" element={<Navigate to="/reception/register" replace />} />
             <Route
               path="/doctor/queue"
               element={
@@ -62,6 +64,8 @@ function App() {
                 </ProtectedRoute>
               }
             />
+            <Route path="/doctor" element={<Navigate to="/doctor/queue" replace />} />
+            <Route path="/doctor/desk" element={<Navigate to="/doctor/queue" replace />} />
             <Route
               path="/doctor/consultation/:visitId"
               element={
@@ -112,6 +116,7 @@ function App() {
                 </ProtectedRoute>
               }
             />
+            <Route path="/lab/dashboard" element={<Navigate to="/lab" replace />} />
             <Route
               path="/pharmacy"
               element={
@@ -122,6 +127,8 @@ function App() {
                 </ProtectedRoute>
               }
             />
+            <Route path="/pharmacy/pos" element={<Navigate to="/pharmacy" replace />} />
+            <Route path="/pharmacy/inventory" element={<Navigate to="/pharmacy" replace />} />
             <Route
               path="/reports"
               element={

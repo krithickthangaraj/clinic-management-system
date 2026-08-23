@@ -121,12 +121,31 @@ export default function PatientRegistration() {
       const latestVisit = history?.[0];
       const latestVitals = latestVisit?.vitals;
 
+      // Only reuse existing visit if it was created TODAY. If it is from yesterday/past, start a new today visit!
+      const isTodayDate = (dateVal) => {
+        if (!dateVal) return false;
+        try {
+          const d = new Date(dateVal);
+          const now = new Date();
+          return (
+            d.getDate() === now.getDate() &&
+            d.getMonth() === now.getMonth() &&
+            d.getFullYear() === now.getFullYear()
+          );
+        } catch {
+          return false;
+        }
+      };
+
       if (patientItem.visit_id) {
         setActiveVisitId(patientItem.visit_id);
-      } else if (latestVisit?.visit?.id) {
-        setActiveVisitId(latestVisit.visit.id);
       } else {
-        setActiveVisitId(null);
+        const latestVisitCreated = latestVisit?.visit?.created_at || latestVisit?.created_at;
+        if (latestVisit?.visit?.id && isTodayDate(latestVisitCreated)) {
+          setActiveVisitId(latestVisit.visit.id);
+        } else {
+          setActiveVisitId(null);
+        }
       }
 
       if (latestVitals) {
@@ -253,18 +272,20 @@ export default function PatientRegistration() {
       let result = null;
 
       if (selectedPatient?.id) {
-        // Edit Mode: Update patient details
+        // Edit Mode / Check-In Mode: Update patient demographics
         const updatedPatient = await patientService.update(selectedPatient.id, payload);
         let vid = activeVisitId;
+        let createdNewVisit = false;
 
-        // Ensure active visit exists
+        // Ensure active today's visit exists
         if (!vid) {
           const newVisit = await visitService.createForPatient(selectedPatient.id);
           vid = newVisit.id;
           setActiveVisitId(vid);
+          createdNewVisit = true;
         }
 
-        // Save vitals
+        // Save vitals on active visit
         const vitalsPayload = {
           visit_id: vid,
           ...payload,
@@ -273,15 +294,22 @@ export default function PatientRegistration() {
 
         result = {
           patient: updatedPatient,
-          visit: { id: vid },
+          visit: {
+            id: vid,
+            visit_number: updatedVitals?.visit_number || `Visit #${vid}`,
+            status: 'vitals_done',
+            created_at: new Date().toISOString(),
+          },
           vitals: updatedVitals,
         };
 
         setSuccessBanner({
-          title: 'Patient Record Updated',
+          title: createdNewVisit
+            ? 'Patient Checked In & Added to Today\'s Queue'
+            : 'Patient Record & Vitals Updated',
           patientId: updatedPatient.patient_id || `#${updatedPatient.id}`,
           patientName: updatedPatient.full_name || updatedPatient.name,
-          visitNumber: `Visit #${vid}`,
+          visitNumber: updatedVitals?.visit_number || `Visit #${vid}`,
         });
       } else {
         // New Patient Registration
