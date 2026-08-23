@@ -56,7 +56,7 @@ class TestSettingsEndpoints(unittest.TestCase):
     def test_01_get_and_update_hospital_settings(self):
         # 1. Get initial settings (creates default)
         settings = asyncio.run(get_hospital_settings(db=self.db, current_user=self.admin_user))
-        self.assertEqual(settings.hospital_name, "AEREN CLINIC & HEALTHCARE")
+        self.assertEqual(settings.hospital_name, "KONGU HOSPITAL")
 
         # 2. Update hospital settings
         update_payload = HospitalSettingsUpdate(

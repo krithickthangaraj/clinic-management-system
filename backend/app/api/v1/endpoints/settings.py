@@ -35,13 +35,13 @@ async def get_hospital_settings(
     settings = db.query(HospitalSettings).first()
     if not settings:
         settings = HospitalSettings(
-            hospital_name="AEREN CLINIC & HEALTHCARE",
-            tagline="Excellence in Outpatient Healthcare & Diagnostics",
-            address="123 Medical Center Road, Central Healthcare District",
+            hospital_name="KONGU HOSPITAL",
+            tagline="Consultant Physician and Diabetologist",
+            address="4 Roads, Veppadai, Komarapalayam, Namakkal - 638008.",
             phone="+91 98765 43210",
-            email="contact@aerenclinic.com",
-            website="www.aerenclinic.com",
-            registration_number="REG-TN-2024-8849",
+            email="contact@konguhospital.com",
+            website="www.konguhospital.com",
+            registration_number="82047",
         )
         db.add(settings)
         db.commit()
