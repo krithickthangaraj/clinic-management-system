@@ -1,9 +1,9 @@
 import logging
-from datetime import datetime, date, time
+from datetime import datetime, date, time, timedelta
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import or_
+from sqlalchemy import or_, and_
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_role
@@ -112,7 +112,11 @@ async def get_doctor_dashboard(
     Robust zero-fallback guarantees on empty data or DB edge cases.
     """
     try:
-        start_today = datetime.combine(date.today(), time.min)
+        # Match today's visits across timezones and ensure active waiting visits are always visible
+        start_today_local = datetime.combine(date.today(), time.min)
+        start_today_utc = datetime.combine(datetime.utcnow().date(), time.min)
+        earliest_today = min(start_today_local, start_today_utc)
+        recent_active_cutoff = datetime.utcnow() - timedelta(days=1)
         
         # Base query for today's visits with eager loading
         query = (
@@ -122,7 +126,19 @@ async def get_doctor_dashboard(
                 joinedload(Visit.vitals),
                 joinedload(Visit.tests),
             )
-            .filter(Visit.created_at >= start_today)
+            .filter(
+                or_(
+                    Visit.created_at >= earliest_today,
+                    and_(
+                        Visit.created_at >= recent_active_cutoff,
+                        Visit.status.in_([
+                            VisitStatus.REGISTERED.value,
+                            VisitStatus.VITALS_DONE.value,
+                            VisitStatus.IN_CONSULTATION.value,
+                        ])
+                    )
+                )
+            )
         )
         
         if consultant and consultant.strip():

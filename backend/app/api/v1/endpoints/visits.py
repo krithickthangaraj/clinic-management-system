@@ -1,7 +1,8 @@
 import json
-from datetime import datetime, date, time
+from datetime import datetime, date, time, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import or_, and_
 from typing import List, Optional
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_role
@@ -31,13 +32,12 @@ async def get_visits_doctor_dashboard(
     return await get_doctor_dashboard(consultant=consultant, db=db, current_user=current_user)
 
 
-
 @router.post("", response_model=VisitResponse, status_code=status.HTTP_201_CREATED)
 @router.post("/", response_model=VisitResponse, status_code=status.HTTP_201_CREATED)
 async def create_visit(
     visit_data: VisitCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role([UserRole.RECEPTION, UserRole.ADMIN]))
+    current_user: User = Depends(require_role([UserRole.RECEPTION, UserRole.ADMIN, UserRole.DOCTOR]))
 ):
     """Create a new visit (called automatically on patient registration)"""
     # Verify patient exists
@@ -84,16 +84,29 @@ async def list_visits(
 @router.get("/reception-today", response_model=List[VisitResponse])
 async def get_reception_today(
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role([UserRole.RECEPTION, UserRole.ADMIN]))
+    current_user: User = Depends(require_role([UserRole.RECEPTION, UserRole.ADMIN, UserRole.DOCTOR]))
 ):
     """Today's visits for reception with patient info (live list)."""
-    from sqlalchemy.orm import joinedload
+    start_today_local = datetime.combine(date.today(), time.min)
+    start_today_utc = datetime.combine(datetime.utcnow().date(), time.min)
+    earliest_today = min(start_today_local, start_today_utc)
+    recent_active_cutoff = datetime.utcnow() - timedelta(days=1)
 
-    start_today = datetime.combine(date.today(), time.min)
     visits = db.query(Visit).options(
-        joinedload(Visit.patient)
+        joinedload(Visit.patient),
+        joinedload(Visit.vitals),
     ).filter(
-        Visit.created_at >= start_today
+        or_(
+            Visit.created_at >= earliest_today,
+            and_(
+                Visit.created_at >= recent_active_cutoff,
+                Visit.status.in_([
+                    VisitStatus.REGISTERED.value,
+                    VisitStatus.VITALS_DONE.value,
+                    VisitStatus.IN_CONSULTATION.value,
+                ])
+            )
+        )
     ).order_by(Visit.created_at.desc()).all()
 
     result = []
@@ -115,11 +128,12 @@ async def get_doctor_queue(
     current_user: User = Depends(require_role([UserRole.DOCTOR, UserRole.ADMIN]))
 ):
     """Get queue of patients waiting for doctor (vitals_done status)"""
-    from sqlalchemy.orm import joinedload
-
+    recent_active_cutoff = datetime.utcnow() - timedelta(days=2)
     visits = db.query(Visit).options(
-        joinedload(Visit.patient)
+        joinedload(Visit.patient),
+        joinedload(Visit.vitals),
     ).filter(
+        Visit.created_at >= recent_active_cutoff,
         Visit.status.in_([
             VisitStatus.REGISTERED.value,
             VisitStatus.VITALS_DONE.value,
@@ -146,13 +160,26 @@ async def get_doctor_today(
     current_user: User = Depends(require_role([UserRole.DOCTOR, UserRole.ADMIN]))
 ):
     """Today's visits for doctor with patient info (summary cards + filterable list)."""
-    from sqlalchemy.orm import joinedload
+    start_today_local = datetime.combine(date.today(), time.min)
+    start_today_utc = datetime.combine(datetime.utcnow().date(), time.min)
+    earliest_today = min(start_today_local, start_today_utc)
+    recent_active_cutoff = datetime.utcnow() - timedelta(days=1)
 
-    start_today = datetime.combine(date.today(), time.min)
     visits = db.query(Visit).options(
-        joinedload(Visit.patient)
+        joinedload(Visit.patient),
+        joinedload(Visit.vitals),
     ).filter(
-        Visit.created_at >= start_today
+        or_(
+            Visit.created_at >= earliest_today,
+            and_(
+                Visit.created_at >= recent_active_cutoff,
+                Visit.status.in_([
+                    VisitStatus.REGISTERED.value,
+                    VisitStatus.VITALS_DONE.value,
+                    VisitStatus.IN_CONSULTATION.value,
+                ])
+            )
+        )
     ).order_by(Visit.created_at.asc()).all()
 
     result = []
@@ -174,12 +201,12 @@ async def get_visit(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Get visit by ID"""
-    from sqlalchemy.orm import joinedload
-    
+    """Get visit by ID with patient and vitals"""
     visit = db.query(Visit).options(
-        joinedload(Visit.patient)
+        joinedload(Visit.patient),
+        joinedload(Visit.vitals)
     ).filter(Visit.id == visit_id).first()
+    
     if not visit:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -188,23 +215,22 @@ async def get_visit(
     
     visit_dict = VisitResponse.model_validate(visit).model_dump()
     if visit.patient:
-        visit_dict['patient_name'] = visit.patient.name
-        visit_dict['patient_age'] = getattr(visit.patient, 'age_years', None) or getattr(visit.patient, 'age', None)
-        visit_dict['patient_age_months'] = getattr(visit.patient, 'age_months', None)
-        visit_dict['patient_gender'] = visit.patient.gender
-        visit_dict['patient_phone'] = visit.patient.phone
-    
+        visit_dict["patient_name"] = visit.patient.name
+        visit_dict["patient_phone"] = visit.patient.phone
+        visit_dict["patient_age"] = getattr(visit.patient, "age_years", None) or getattr(visit.patient, "age", None)
+        visit_dict["patient_age_months"] = getattr(visit.patient, "age_months", None)
+        visit_dict["patient_gender"] = visit.patient.gender
     return VisitResponse(**visit_dict)
 
 
 @router.patch("/{visit_id}", response_model=VisitResponse)
 async def update_visit(
     visit_id: int,
-    visit_update: VisitUpdate,
+    visit_data: VisitUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role([UserRole.DOCTOR, UserRole.ADMIN]))
+    current_user: User = Depends(get_current_user)
 ):
-    """Update visit (consultation data)"""
+    """Update visit status or other fields"""
     visit = db.query(Visit).filter(Visit.id == visit_id).first()
     if not visit:
         raise HTTPException(
@@ -212,20 +238,14 @@ async def update_visit(
             detail="Visit not found"
         )
     
-    # Update fields
-    update_data = visit_update.model_dump(exclude_unset=True)
+    update_dict = visit_data.model_dump(exclude_unset=True)
+    if "chief_complaints" in update_dict and isinstance(update_dict["chief_complaints"], (list, dict)):
+        update_dict["chief_complaints"] = json.dumps(update_dict["chief_complaints"])
+        
+    for key, value in update_dict.items():
+        setattr(visit, key, value)
     
-    # Convert chief_complaints list to JSON string
-    if "chief_complaints" in update_data and update_data["chief_complaints"]:
-        update_data["chief_complaints"] = json.dumps(update_data["chief_complaints"])
-    
-    for field, value in update_data.items():
-        setattr(visit, field, value)
-    
-    # Auto-assign doctor if not set
-    if not visit.doctor_id:
-        visit.doctor_id = current_user.id
-    
+    visit.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(visit)
     
