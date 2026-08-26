@@ -247,6 +247,73 @@
   transform: translateY(-1px);
 }
 
+/* Real-Time Green Blinking Radar Light & Flowing Border Alert */
+.nav-beacon-container {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 10px;
+  height: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.nav-beacon-ping {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 9999px;
+  background-color: #10b981;
+  opacity: 0.85;
+  animation: beaconRadar 1.6s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+.nav-beacon-dot {
+  position: relative;
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background-color: #059669;
+  border: 1px solid #ffffff;
+  box-shadow: 0 0 6px #10b981, 0 0 10px #34d399;
+}
+
+@keyframes beaconRadar {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.9;
+  }
+  75%, 100% {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+
+/* Flowing Glowing Border Around the Tab Box */
+.nav-pill-link.has-new-alert {
+  position: relative;
+  background: #f0fdf4 !important;
+  color: #065f46 !important;
+  border: 1px solid #10b981 !important;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.35);
+  animation: borderFlowPulse 2.2s ease-in-out infinite;
+}
+
+@keyframes borderFlowPulse {
+  0%, 100% {
+    border-color: #10b981;
+    box-shadow: 0 0 4px rgba(16, 185, 129, 0.3), 0 0 10px rgba(16, 185, 129, 0.2);
+  }
+  50% {
+    border-color: #34d399;
+    background: #ecfdf5 !important;
+    box-shadow: 0 0 10px rgba(52, 211, 153, 0.6), 0 0 16px rgba(16, 185, 129, 0.35);
+  }
+}
+
 /* Main Viewport */
 .global-main-viewport {
   flex: 1;
