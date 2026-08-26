@@ -410,7 +410,11 @@ async def get_pharmacy_queue(
         )
         .filter(
             Visit.created_at >= recent_cutoff,
-            Visit.status.in_([VisitStatus.COMPLETED.value, VisitStatus.CONSULTED.value]),
+            Visit.status.in_([
+                VisitStatus.COMPLETED.value,
+                VisitStatus.CONSULTED.value,
+                VisitStatus.DISPENSED.value,
+            ]),
         )
         .order_by(Visit.updated_at.desc(), Visit.created_at.desc())
         .all()
@@ -440,9 +444,23 @@ async def get_pharmacy_queue(
             or "Dr. T.S.Jeyagowthaman"
         )
 
+        is_dispensed = str(v.status or "").lower() == VisitStatus.DISPENSED.value.lower()
+        pharm_status = "dispensed" if is_dispensed else "pending"
+
+        # Extract daily token sequence integer from visit_number (e.g. V-20260826-001 -> 1)
+        token_num = None
+        if getattr(v, "queue_number", None) and int(v.queue_number) > 0:
+            token_num = int(v.queue_number)
+        elif v.visit_number and "-" in v.visit_number:
+            try:
+                token_num = int(v.visit_number.split("-")[-1])
+            except (ValueError, IndexError):
+                token_num = None
+
         queue.append(
             PharmacyQueueItem(
                 visit_id=v.id,
+                queue_number=token_num,
                 visit_number=v.visit_number or f"VIS-{v.id}",
                 patient_id=formatted_id,
                 patient_name=pat_name,
@@ -453,7 +471,7 @@ async def get_pharmacy_queue(
                 prescribed_at=v.prescription.created_at or v.created_at,
                 items_count=len(v.prescription.drugs),
                 status=v.status,
-                pharmacy_status="pending",
+                pharmacy_status=pharm_status,
             )
         )
 
@@ -569,8 +587,19 @@ async def get_prescription_for_dispensing(
             )
         )
 
+        # Extract daily token sequence integer
+    token_num = None
+    if getattr(visit, "queue_number", None) and int(visit.queue_number) > 0:
+        token_num = int(visit.queue_number)
+    elif visit.visit_number and "-" in visit.visit_number:
+        try:
+            token_num = int(visit.visit_number.split("-")[-1])
+        except (ValueError, IndexError):
+            token_num = None
+
     return PharmacyPrescriptionDetails(
         visit_id=visit.id,
+        queue_number=token_num,
         visit_number=visit.visit_number or f"VIS-{visit.id}",
         patient_id=formatted_id,
         patient_name=pat_name,

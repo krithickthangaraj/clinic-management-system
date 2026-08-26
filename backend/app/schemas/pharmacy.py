@@ -43,6 +43,7 @@ class PharmacyItemResponse(PharmacyItemBase):
 
 class PharmacyQueueItem(BaseModel):
     visit_id: int
+    queue_number: Optional[int] = None
     visit_number: str
     patient_id: str
     patient_name: str
@@ -78,6 +79,7 @@ class PrescribedMedicineMatch(BaseModel):
 
 class PharmacyPrescriptionDetails(BaseModel):
     visit_id: int
+    queue_number: Optional[int] = None
     visit_number: str
     patient_id: str
     patient_name: str
