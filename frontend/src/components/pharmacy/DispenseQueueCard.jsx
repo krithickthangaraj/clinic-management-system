@@ -1,5 +1,5 @@
 import React from 'react';
-import { getDailyTokenNumber } from '../../utils/formatters';
+import { getDailyTokenNumber, formatDoctorDisplayName } from '../../utils/formatters';
 
 /**
  * DispenseQueueCard - Prescription Token Card in Left Feed
@@ -13,7 +13,7 @@ export default function DispenseQueueCard({
   const patientName = item.patient_name || item.name || 'Patient';
   const uhid = item.patient_id || item.patient_uhid || 'UHID-N/A';
   const ageSex = item.age_sex || `${item.age || '—'} Y / ${item.gender || '—'}`;
-  const doctorName = item.doctor_name || 'Dr. T.S.Jeyagowthaman';
+  const doctorName = formatDoctorDisplayName(item.consultant_assigned || item.doctor_name);
   const itemCount = item.items_count || (Array.isArray(item.drugs) ? item.drugs.length : 1);
   const status = item.pharmacy_status || item.status || 'pending';
   const isDispensed = String(status).toLowerCase() === 'dispensed' || String(status).toLowerCase() === 'completed';

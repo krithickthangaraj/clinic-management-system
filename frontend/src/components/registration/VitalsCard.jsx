@@ -247,17 +247,16 @@ export default function VitalsCard({
 
         {/* Consultant Assigned Dropdown */}
         <div className="field-group">
-          <label htmlFor="vital_consultant" className="field-label">
+          <label htmlFor="vital_consultant" className="field-label font-bold text-teal-900">
             Consultant Assigned
           </label>
           <select
             id="vital_consultant"
             name="consultant_assigned"
-            className="form-select font-medium"
-            value={vitals.consultant_assigned || ''}
+            className="form-select font-semibold text-slate-900 border-teal-500 ring-1 ring-teal-500/50 bg-white"
+            value={vitals.consultant_assigned || 'Dr. T.S.Jeyagowthaman'}
             onChange={(e) => handleFieldChange('consultant_assigned', e.target.value)}
           >
-            <option value="">-- Select Consultant --</option>
             {CONSULTANT_OPTIONS.map((doc) => (
               <option key={doc} value={doc}>
                 {doc}

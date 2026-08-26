@@ -39,6 +39,19 @@ def compute_item_alerts(item: PharmacyItem) -> tuple[bool, bool, bool]:
     return is_low_stock, is_out_of_stock, is_near_expiry
 
 
+def resolve_clean_doctor_name(visit: Visit) -> str:
+    """Resolve attending doctor name, rejecting 'admin' usernames."""
+    if visit.consultant_assigned and "admin" not in visit.consultant_assigned.lower():
+        name = visit.consultant_assigned.strip()
+        return name if name.startswith("Dr.") else f"Dr. {name}"
+    
+    if visit.doctor and visit.doctor.full_name and "admin" not in visit.doctor.full_name.lower():
+        name = visit.doctor.full_name.strip()
+        return name if name.startswith("Dr.") else f"Dr. {name}"
+        
+    return "Dr. T.S.Jeyagowthaman"
+
+
 # -----------------------------------------------------------------------------
 # 1. Inventory Management Endpoints
 # -----------------------------------------------------------------------------
@@ -438,11 +451,7 @@ async def get_pharmacy_queue(
         gender_val = patient_obj.gender if patient_obj else "—"
         age_sex_str = f"{age_val or '—'} Y / {gender_val[0] if gender_val else '—'}"
 
-        doctor_name = (
-            v.consultant_assigned
-            or (v.doctor.full_name if v.doctor else None)
-            or "Dr. T.S.Jeyagowthaman"
-        )
+        doctor_name = resolve_clean_doctor_name(v)
 
         is_dispensed = str(v.status or "").lower() == VisitStatus.DISPENSED.value.lower()
         pharm_status = "dispensed" if is_dispensed else "pending"
@@ -517,11 +526,7 @@ async def get_prescription_for_dispensing(
     gender_val = patient_obj.gender if patient_obj else "—"
     age_sex_str = f"{age_val or '—'} Y / {gender_val}"
 
-    doctor_name = (
-        visit.consultant_assigned
-        or (visit.doctor.full_name if visit.doctor else None)
-        or "Dr. T.S.Jeyagowthaman"
-    )
+    doctor_name = resolve_clean_doctor_name(visit)
 
     matches: List[PrescribedMedicineMatch] = []
     total_est = 0.0

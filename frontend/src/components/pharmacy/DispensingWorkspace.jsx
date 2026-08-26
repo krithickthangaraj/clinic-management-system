@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import MedicationDispenseRow from './MedicationDispenseRow';
-import { getDailyTokenNumber } from '../../utils/formatters';
+import { getDailyTokenNumber, formatDoctorDisplayName } from '../../utils/formatters';
 
 /**
  * DispensingWorkspace - Right Pane (Flex-1) Master Dispensing & Stock Reconciliation Workspace
@@ -51,7 +51,7 @@ export default function DispensingWorkspace({
   const patientName = patient.patient_name || patient.name || 'Patient';
   const uhid = patient.patient_id || patient.patient_uhid || 'UHID-N/A';
   const ageSex = patient.age_sex || `${patient.age || '—'} Y / ${patient.gender || '—'}`;
-  const doctorName = prescriptionDetails.doctor_name || 'Dr. T.S.Jeyagowthaman';
+  const doctorName = formatDoctorDisplayName(prescriptionDetails.consultant_assigned || prescriptionDetails.doctor_name);
   const tokenNo = getDailyTokenNumber(prescriptionDetails);
   const allergies = Array.isArray(patient.allergies) ? patient.allergies : [];
 

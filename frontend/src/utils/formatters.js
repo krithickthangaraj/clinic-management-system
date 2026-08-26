@@ -31,3 +31,19 @@ export function formatTokenString(item, fallbackIndex = 0) {
   const token = getDailyTokenNumber(item, fallbackIndex);
   return `Token #${token}`;
 }
+
+/**
+ * Resolves a clean display name for the attending doctor,
+ * preventing system usernames like 'admin' or 'administrator' from being shown.
+ */
+export function formatDoctorDisplayName(consultantAssigned, fallbackUser = null) {
+  const c = String(consultantAssigned || '').trim();
+  if (c && !c.toLowerCase().includes('admin')) {
+    return c.startsWith('Dr.') ? c : `Dr. ${c}`;
+  }
+  const u = String(fallbackUser?.full_name || fallbackUser || '').trim();
+  if (u && !u.toLowerCase().includes('admin')) {
+    return u.startsWith('Dr.') ? u : `Dr. ${u}`;
+  }
+  return 'Dr. T.S.Jeyagowthaman';
+}
