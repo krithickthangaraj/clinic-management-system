@@ -13,6 +13,7 @@ export default function PatientVitalsHeader({
   consultantName = '',
   elapsedWaitMinutes = 0,
   onUpdateVital = () => {},
+  onOpenHistory = null,
 }) {
   const [editingField, setEditingField] = useState(null);
   const [tempValue, setTempValue] = useState('');
@@ -364,6 +365,23 @@ export default function PatientVitalsHeader({
             <span className="font-bold text-[9px] text-slate-400">RR</span>
             <strong className="font-semibold text-slate-900">{vitals.respiratory_rate || vitals.rr || '—'}</strong>
           </div>
+        )}
+
+        {/* 10. Longitudinal History Drawer Trigger CTA */}
+        {onOpenHistory && (
+          <button
+            type="button"
+            onClick={onOpenHistory}
+            className="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full text-[11px] font-bold bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white shadow-xs transition-all cursor-pointer select-none ml-1.5 shrink-0"
+            title="Open Longitudinal Medical History & EMR Drawer"
+            data-testid="btn-open-history-drawer"
+          >
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M12 8v4l3 3" />
+              <circle cx="12" cy="12" r="9" />
+            </svg>
+            <span>Timeline</span>
+          </button>
         )}
       </div>
     </header>

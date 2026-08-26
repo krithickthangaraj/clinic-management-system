@@ -14,6 +14,7 @@ import PostPrescriptionRows from '../../components/prescription/PostPrescription
 import PrescriptionFooter from '../../components/prescription/PrescriptionFooter';
 import RXMedicationTable from '../../components/prescription/RXMedicationTable';
 import PrescriptionView from '../../components/PrescriptionView';
+import PatientHistoryDrawer from '../../components/doctor/PatientHistoryDrawer';
 
 import './RXConsultation.css';
 
@@ -33,6 +34,7 @@ export default function Consultation() {
   const [showPrescription, setShowPrescription] = useState(false);
   const [successToast, setSuccessToast] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [isHistoryDrawerOpen, setIsHistoryDrawerOpen] = useState(false);
 
   // Elapsed consultation timer
   const [elapsedMinutes, setElapsedMinutes] = useState(0);
@@ -221,6 +223,33 @@ export default function Consultation() {
     }
   };
 
+  // Copy Drug from Patient History into Active Rx
+  const handleCopyDrug = (med) => {
+    const mName = med?.drug_name || med?.name;
+    if (!mName || !mName.trim()) return;
+
+    const exists = medicines.some(
+      (m) =>
+        String(m.drug_name || m.name || '').toLowerCase().trim() ===
+        mName.toLowerCase().trim()
+    );
+
+    if (exists) {
+      setSuccessToast(`"${mName}" is already in the active prescription.`);
+      return;
+    }
+
+    addDrug({
+      drug_name: mName,
+      dosage: med.dosage || med.dose || '1 tab',
+      frequency: med.frequency || '1-0-1',
+      duration_days: med.duration_days || med.days || 30,
+      timing_notes: med.timing_notes || med.instructions || 'After Food',
+    });
+
+    setSuccessToast(`Added "${mName}" from medical history into active prescription.`);
+  };
+
   // Master Action Trigger (Save, Print, Status Updates)
   const handleAction = async (actionType) => {
     try {
@@ -318,6 +347,18 @@ export default function Consultation() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleAction, addDrug]);
 
+  // Body scroll lock when modal or drawer is active
+  useEffect(() => {
+    if (showPrescription || isHistoryDrawerOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [showPrescription, isHistoryDrawerOpen]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-12">
@@ -335,8 +376,8 @@ export default function Consultation() {
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-900 antialiased">
       {/* Printable Prescription Modal & Review Screen */}
       {showPrescription && (
-        <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-y-auto print:p-0 print:bg-white print:static print:overflow-visible">
-          <div className="w-full max-w-4xl max-h-[95vh] overflow-y-auto print:max-h-none print:overflow-visible bg-white rounded-2xl shadow-2xl print:shadow-none print:rounded-none p-4 sm:p-6 print:p-0">
+        <div className="fixed inset-0 z-[1000] bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-y-auto print:p-0 print:bg-white print:static print:overflow-visible">
+          <div className="relative z-[1001] w-full max-w-4xl max-h-[95vh] overflow-y-auto print:max-h-none print:overflow-visible bg-white rounded-2xl shadow-2xl print:shadow-none print:rounded-none p-4 sm:p-6 print:p-0">
             <PrescriptionView
               visitId={visitId}
               visit={visit}
@@ -404,6 +445,7 @@ export default function Consultation() {
           consultantName={visit?.consultant_assigned}
           elapsedWaitMinutes={elapsedMinutes}
           onUpdateVital={handleUpdateVital}
+          onOpenHistory={() => setIsHistoryDrawerOpen(true)}
         />
 
         {/* 2. ROW: Patient Medical History (Left) + Template Engine Section (Right) */}
@@ -459,6 +501,16 @@ export default function Consultation() {
         totalAmount={totalAmount}
         onAction={handleAction}
         saving={saving}
+      />
+
+      {/* 7. Slide-Over Patient History & Longitudinal EMR Drawer */}
+      <PatientHistoryDrawer
+        isOpen={isHistoryDrawerOpen}
+        onClose={() => setIsHistoryDrawerOpen(false)}
+        patient={patient}
+        currentVisitId={visitId}
+        activeMedicines={medicines}
+        onCopyDrugToActiveRx={handleCopyDrug}
       />
     </div>
   );

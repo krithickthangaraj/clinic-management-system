@@ -23,7 +23,7 @@
 .global-sticky-header {
   position: sticky;
   top: 0;
-  z-index: 999;
+  z-index: 30;
   height: var(--header-height);
   background: var(--header-bg);
   backdrop-filter: blur(16px);
