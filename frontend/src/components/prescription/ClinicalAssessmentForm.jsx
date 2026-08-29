@@ -3,6 +3,43 @@ import SmartField from './SmartField';
 
 const DURATION_UNITS = ['Days', 'Weeks', 'Months', 'Years'];
 
+// Helper to extract code, name, and chronic flag from diagnosis string or object
+export function parseDiagnosisItem(diag) {
+  if (!diag) return { name: '', code: null, is_chronic: false };
+  if (typeof diag === 'object') {
+    return {
+      name: diag.name || diag.code || '',
+      code: diag.code || null,
+      is_chronic: Boolean(diag.is_chronic),
+      category: diag.category || null,
+    };
+  }
+
+  const str = String(diag).trim();
+  let code = null;
+  let name = str;
+
+  // Pattern: "[I10] Hypertension, Essential" or "I10 - Hypertension"
+  const codeMatch = str.match(/^\[([A-Z0-9.]+)\]\s*(.*)$/) || str.match(/^([A-Z][0-9]{2}(\.[0-9]{1,2})?)\s*[-:]\s*(.*)$/);
+  if (codeMatch) {
+    code = codeMatch[1];
+    name = codeMatch[codeMatch.length - 1] || str;
+  }
+
+  const lower = name.toLowerCase();
+  const is_chronic =
+    lower.includes('hypertension') ||
+    lower.includes('diabetes') ||
+    lower.includes('asthma') ||
+    lower.includes('hypothyroid') ||
+    lower.includes('copd') ||
+    lower.includes('chronic') ||
+    lower.includes('lipid') ||
+    lower.includes('arthritis');
+
+  return { name, code, is_chronic };
+}
+
 /**
  * ClinicalAssessmentForm Component
  * - Left: Chief Complaints (SmartField with dynamic suggestion removal & single-line tags) + Compact Duration
@@ -241,32 +278,51 @@ export default function ClinicalAssessmentForm({
             testId="input-diagnosis"
           />
 
-          {/* Active Recorded Diagnoses (Single Line Horizontal Scroll in Whisper-Light Green) */}
+          {/* Active Recorded Diagnoses (Structured ICD-10 & Comma-Safe Tags) */}
           <div
-            className="flex overflow-x-auto items-center gap-1.5 pb-0.5 ultra-thin-scrollbar h-7.5 max-h-7.5 min-h-[30px]"
+            className="flex flex-wrap items-center gap-2 pt-1 min-h-[32px]"
             data-testid="diagnosis-tags-cloud"
           >
             {(assessment.diagnosis || []).length === 0 ? (
               <span className="text-xs text-slate-400 italic">No diagnosis recorded.</span>
             ) : (
-              (assessment.diagnosis || []).map((diag, idx) => (
-                <span
-                  key={idx}
-                  className="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full text-xs font-semibold bg-emerald-50/30 text-emerald-950 border border-emerald-200/40 shadow-2xs shrink-0 whitespace-nowrap"
-                  title={diag}
-                  data-testid={`diagnosis-tag-${idx}`}
-                >
-                  <span className="truncate max-w-[200px]">{diag}</span>
-                  <button
-                    type="button"
-                    className="hover:text-rose-600 font-bold ml-0.5 transition-colors cursor-pointer"
-                    onClick={() => handleRemoveDiagnosis(idx)}
-                    title="Remove"
+              (assessment.diagnosis || []).map((diag, idx) => {
+                const parsed = parseDiagnosisItem(diag);
+                return (
+                  <span
+                    key={idx}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-teal-50/80 border border-teal-200 ring-1 ring-inset ring-teal-600/20 text-teal-900 font-medium shadow-2xs text-xs select-none transition-all diagnosis-tag-item"
+                    title={parsed.name}
+                    data-testid={`diagnosis-tag-${idx}`}
                   >
-                    &times;
-                  </button>
-                </span>
-              ))
+                    {parsed.code && (
+                      <span className="font-mono text-[10px] font-extrabold bg-teal-700 text-white px-1.5 py-0.5 rounded shadow-2xs shrink-0">
+                        #{parsed.code}
+                      </span>
+                    )}
+
+                    <span className="font-bold text-teal-950 truncate max-w-[280px]">
+                      {parsed.name}
+                    </span>
+
+                    {parsed.is_chronic && (
+                      <span className="inline-flex items-center gap-1 text-[9px] font-extrabold text-purple-700 bg-purple-50 border border-purple-200/80 px-1.5 py-0.5 rounded-full shrink-0">
+                        <span className="w-1.5 h-1.5 rounded-full bg-purple-500" />
+                        Chronic
+                      </span>
+                    )}
+
+                    <button
+                      type="button"
+                      className="hover:text-rose-600 font-bold ml-1 text-slate-400 hover:bg-rose-50 rounded-full w-4 h-4 flex items-center justify-center transition-colors cursor-pointer shrink-0"
+                      onClick={() => handleRemoveDiagnosis(idx)}
+                      title="Remove diagnosis"
+                    >
+                      &times;
+                    </button>
+                  </span>
+                );
+              })
             )}
           </div>
 

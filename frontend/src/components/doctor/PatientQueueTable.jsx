@@ -288,10 +288,17 @@ export default function PatientQueueTable({
                           <span className="live-pulse-badge">With Doctor</span>
                         )}
                         {(patient.lab_results_ready || patient.status === 'reports_ready') && (
-                          <span className="lab-ready-pulse-badge" title="Lab investigations completed & results ready for review">
-                            <span className="pulse-dot" />
-                            <svg className="w-3 h-3 text-rose-600 inline mr-0.5" viewBox="0 0 20 20" fill="currentColor">
-                              <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
+                          <span
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-50 border border-rose-200 ring-1 ring-inset ring-rose-600/30 text-rose-800 font-bold text-xs shadow-2xs select-none"
+                            title="Lab investigations completed & results ready for doctor review"
+                            data-testid="lab-results-ready-badge"
+                          >
+                            <span className="relative flex h-2 w-2 mr-0.5">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-500 opacity-75" />
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-600" />
+                            </span>
+                            <svg className="w-3.5 h-3.5 text-rose-700 inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                              <path d="M4.5 3h15M6 3v16a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V3M6 14h12" />
                             </svg>
                             <span>Lab Results Ready</span>
                           </span>

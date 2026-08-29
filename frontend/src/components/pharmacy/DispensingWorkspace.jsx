@@ -15,6 +15,7 @@ export default function DispensingWorkspace({
 }) {
   const [verifiedIds, setVerifiedIds] = useState(new Set());
   const [quantities, setQuantities] = useState({});
+  const [selectedBatches, setSelectedBatches] = useState({});
   const [paymentMode, setPaymentMode] = useState('Cash');
 
   if (loading) {
@@ -81,12 +82,12 @@ export default function DispensingWorkspace({
     if (verifiedIds.size === items.length) {
       setVerifiedIds(new Set());
     } else {
-      const allKeys = new Set(items.map((it, idx) => it.matched_item_id || it.brand_name || idx));
+      const allKeys = new Set(items.map((it, idx) => it.prescription_item_id || it.matched_item_id || it.brand_name || idx));
       setVerifiedIds(allKeys);
     }
   };
 
-  // Track modified quantities
+  // Track modified quantities (Partial Dispensing)
   const handleQuantityChange = (itemKey, qty) => {
     setQuantities((prev) => ({
       ...prev,
@@ -94,20 +95,66 @@ export default function DispensingWorkspace({
     }));
   };
 
-  // Calculate bill total
+  // Track selected batch overrides
+  const handleSelectBatch = (itemKey, batch) => {
+    setSelectedBatches((prev) => ({
+      ...prev,
+      [itemKey]: batch.batch_id || batch.id,
+    }));
+  };
+
+  // Calculate dynamic bill total based on chosen batch unit prices & partial quantities
   const grandTotal = items.reduce((acc, curr, idx) => {
-    const key = curr.matched_item_id || curr.brand_name || idx;
+    const key = curr.prescription_item_id || curr.matched_item_id || curr.brand_name || idx;
     const qty = quantities[key] !== undefined ? quantities[key] : (curr.quantity || 1);
-    const price = parseFloat(curr.unit_price || 5.0);
+    const batches = Array.isArray(curr.available_batches) ? curr.available_batches : [];
+    const chosenBatchId = selectedBatches[key] || curr.recommended_batch_id || (batches[0]?.batch_id || batches[0]?.id);
+    const chosenBatch = batches.find((b) => (b.batch_id === chosenBatchId || b.id === chosenBatchId)) || batches[0];
+    const price = parseFloat(chosenBatch?.unit_price || curr.unit_price || 5.0);
     return acc + qty * price;
   }, 0);
 
   const allVerified = items.length > 0 && verifiedIds.size === items.length;
 
+  const handleDispenseSubmit = () => {
+    const dispensedItems = items.map((item, idx) => {
+      const itemKey = item.prescription_item_id || item.matched_item_id || item.brand_name || idx;
+      const batches = Array.isArray(item.available_batches) ? item.available_batches : [];
+      const chosenBatchId = selectedBatches[itemKey] || item.recommended_batch_id || (batches[0]?.batch_id || batches[0]?.id);
+      const chosenBatch = batches.find((b) => (b.batch_id === chosenBatchId || b.id === chosenBatchId)) || batches[0];
+      const qty = quantities[itemKey] !== undefined ? quantities[itemKey] : (item.quantity || 1);
+      const uPrice = parseFloat(chosenBatch?.unit_price || item.unit_price || 5.0);
+
+      return {
+        prescription_item_id: item.prescription_item_id || item.id,
+        drug_name: item.drug_name,
+        brand_name: item.brand_name,
+        batch_id: chosenBatch?.batch_id || chosenBatch?.id || item.matched_item_id,
+        selected_batch_id: chosenBatch?.batch_id || chosenBatch?.id || item.matched_item_id,
+        batch_number: chosenBatch?.batch_number || item.batch_number || 'GEN-2026-001',
+        prescribed_quantity: item.prescribed_quantity || item.quantity || 1,
+        dispensed_quantity: qty,
+        unit_price: uPrice,
+        is_partial: Boolean(item.prescribed_quantity && qty < item.prescribed_quantity),
+        line_subtotal: Math.round(qty * uPrice * 100) / 100,
+      };
+    });
+
+    const payload = {
+      visit_id: prescriptionDetails.visit_id || prescriptionDetails.id,
+      prescription_id: prescriptionDetails.prescription_id,
+      payment_mode: paymentMode,
+      total_amount: Math.round(grandTotal * 100) / 100,
+      dispensed_items: dispensedItems,
+    };
+
+    onDispense(payload, paymentMode, grandTotal);
+  };
+
   return (
     <div className="flex-1 flex flex-col h-full bg-slate-50 overflow-hidden">
       {/* 1. Patient Clinical Banner */}
-      <div className="p-4 bg-slate-900 text-white flex items-center justify-between gap-4 shrink-0 shadow-sm">
+      <div className="p-4 bg-white border-b border-slate-200 text-slate-900 flex items-center justify-between gap-4 shrink-0 shadow-2xs">
         <div className="flex items-center gap-3.5 min-w-0">
           <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-teal-600 to-teal-800 font-extrabold text-white flex items-center justify-center text-sm shadow-md border border-teal-500/30 shrink-0">
             {patientName
@@ -120,7 +167,7 @@ export default function DispensingWorkspace({
 
           <div className="flex flex-col min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="font-extrabold text-sm sm:text-base text-white tracking-tight truncate">
+              <h2 className="font-extrabold text-base text-slate-900 tracking-tight truncate">
                 {patientName}
               </h2>
               <MonospaceDataTag
@@ -130,12 +177,12 @@ export default function DispensingWorkspace({
               />
             </div>
 
-            <div className="flex items-center gap-2 text-xs text-slate-300 mt-1 flex-wrap">
-              <span className="font-medium">{ageSex}</span>
+            <div className="flex items-center gap-2 text-xs text-slate-500 mt-1 flex-wrap font-medium">
+              <span>{ageSex}</span>
               <span>•</span>
-              <span className="font-mono text-teal-300 font-bold">{uhid}</span>
+              <span className="font-mono text-teal-700 font-bold">{uhid}</span>
               <span>•</span>
-              <span className="font-medium text-slate-200">{doctorName}</span>
+              <span className="text-slate-700">{doctorName}</span>
             </div>
           </div>
         </div>
@@ -146,8 +193,8 @@ export default function DispensingWorkspace({
             Allergy: {allergies.join(', ')}
           </ClinicalBadge>
         ) : (
-          <div className="hidden sm:flex items-center gap-1.5 text-xs text-emerald-400 font-medium">
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <div className="hidden sm:flex items-center gap-1.5 text-xs text-emerald-700 font-semibold bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+            <svg className="w-4 h-4 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <polyline points="20 6 9 17 4 12" />
             </svg>
             <span>No Known Drug Allergies</span>
@@ -179,9 +226,10 @@ export default function DispensingWorkspace({
 
           <div className="divide-y divide-slate-100">
             {items.map((item, index) => {
-              const itemKey = item.matched_item_id || item.brand_name || index;
+              const itemKey = item.prescription_item_id || item.matched_item_id || item.brand_name || index;
               const isVerified = verifiedIds.has(itemKey);
-              const customQty = quantities[itemKey] !== undefined ? quantities[itemKey] : item.quantity;
+              const customQty = quantities[itemKey] !== undefined ? quantities[itemKey] : (item.prescribed_quantity || item.quantity);
+              const selectedBatchId = selectedBatches[itemKey] || item.recommended_batch_id;
 
               return (
                 <MedicationDispenseRow
@@ -189,9 +237,11 @@ export default function DispensingWorkspace({
                   item={item}
                   index={index}
                   isVerified={isVerified}
-                  onToggleVerify={() => handleToggleVerify(itemKey)}
-                  onQuantityChange={(qty) => handleQuantityChange(itemKey, qty)}
+                  selectedBatchId={selectedBatchId}
                   currentQty={customQty}
+                  onToggleVerify={() => handleToggleVerify(itemKey)}
+                  onSelectBatch={(batch) => handleSelectBatch(itemKey, batch)}
+                  onQuantityChange={(qty) => handleQuantityChange(itemKey, qty)}
                   onOpenStockReplenish={onOpenStockReplenish}
                 />
               );
@@ -248,7 +298,7 @@ export default function DispensingWorkspace({
           </div>
 
           <TactileButton
-            onClick={() => onDispense(prescriptionDetails, paymentMode, grandTotal)}
+            onClick={handleDispenseSubmit}
             disabled={isDispensing || items.length === 0}
             loading={isDispensing}
             variant="primary"

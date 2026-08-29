@@ -27,6 +27,7 @@ class InstructionEnum(str, Enum):
 # 1. RX Medication Item Schema
 # ---------------------------------------------------------------------------
 class RXDrugItem(BaseModel):
+    id: Optional[int] = None
     s_no: Optional[int] = 1
     brand_name: Optional[str] = None
     drug_name: str
@@ -57,12 +58,27 @@ class PatientHistoryPayload(BaseModel):
 # ---------------------------------------------------------------------------
 # 3. Clinical Assessment Schema
 # ---------------------------------------------------------------------------
+class DiagnosisItem(BaseModel):
+    id: Optional[str] = None
+    code: Optional[str] = None
+    name: str
+    is_chronic: Optional[bool] = False
+    category: Optional[str] = None
+
+
+class ChiefComplaintItem(BaseModel):
+    complaint: str
+    duration_value: Optional[Any] = None
+    duration_unit: Optional[str] = "Days"
+    severity: Optional[str] = None
+
+
 class ClinicalAssessmentPayload(BaseModel):
-    complaints: List[Any] = Field(default_factory=list)
+    complaints: List[Union[ChiefComplaintItem, str, Dict[str, Any]]] = Field(default_factory=list)
     duration: Optional[str] = None
     duration_value: Optional[Any] = None
     duration_unit: Optional[str] = None
-    diagnosis: List[str] = Field(default_factory=list)
+    diagnosis: List[Union[DiagnosisItem, str, Dict[str, Any]]] = Field(default_factory=list)
     examination: Optional[str] = None
 
     class Config:

@@ -8,6 +8,8 @@ warnings.filterwarnings('ignore', module='passlib')
 logging.getLogger('passlib').setLevel(logging.ERROR)
 
 from app.core.config import settings
+from app.core.database import Base, engine
+import app.models  # Ensure all models are registered with Base
 from app.api.v1.api import api_router
 
 app = FastAPI(
@@ -30,10 +32,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# simple startup log
+# startup handler
 @app.on_event('startup')
 async def _startup():
     print(f"Starting Clinic API (env={settings.ENVIRONMENT}), CORS origins={origins}")
+    try:
+        Base.metadata.create_all(bind=engine)
+    except Exception as e:
+        print(f"Warning during DB table auto-creation: {e}")
 
 # Include API routes
 app.include_router(api_router, prefix="/api/v1")

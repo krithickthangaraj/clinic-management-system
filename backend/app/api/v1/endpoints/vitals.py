@@ -16,9 +16,9 @@ router = APIRouter()
 async def create_vitals(
     vitals_data: VitalsCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role([UserRole.RECEPTION, UserRole.ADMIN]))
+    current_user: User = Depends(require_role([UserRole.RECEPTION, UserRole.ADMIN, UserRole.DOCTOR]))
 ):
-    """Enter vitals for a visit"""
+    """Enter vitals for a visit with Vitals State Lock Guard"""
     # Verify visit exists
     visit = db.query(Visit).filter(Visit.id == vitals_data.visit_id).first()
     if not visit:
@@ -34,19 +34,25 @@ async def create_vitals(
         for field, value in vitals_data.model_dump(exclude_unset=True).items():
             if field != "visit_id":
                 setattr(existing, field, value)
+        
+        # VITALS STATE LOCK GUARD:
+        # Only transition status if the visit is still in initial REGISTERED state
+        curr_status = str(visit.status or "").lower()
+        if curr_status in [VisitStatus.REGISTERED.value.lower(), "registered", "vitals_pending"]:
+            visit.status = VisitStatus.VITALS_DONE.value
+            
         db.commit()
         db.refresh(existing)
-        # Update visit status
-        visit.status = VisitStatus.VITALS_DONE.value
-        db.commit()
         return VitalsResponse.model_validate(existing)
     
     # Create new vitals
     vitals = Vitals(**vitals_data.model_dump())
     db.add(vitals)
     
-    # Update visit status
-    visit.status = VisitStatus.VITALS_DONE.value
+    # VITALS STATE LOCK GUARD:
+    curr_status = str(visit.status or "").lower()
+    if curr_status in [VisitStatus.REGISTERED.value.lower(), "registered", "vitals_pending"]:
+        visit.status = VisitStatus.VITALS_DONE.value
     
     db.commit()
     db.refresh(vitals)

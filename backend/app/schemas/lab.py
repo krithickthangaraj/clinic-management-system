@@ -56,11 +56,39 @@ class LabResultItem(BaseModel):
     notes: Optional[str] = None
 
 
-class LabOrderFinalizeRequest(BaseModel):
-    visit_id: int
-    results: List[LabResultItem]
+class LabParameterEntry(BaseModel):
+    parameter_name: str
+    observed_value: str
+    unit: Optional[str] = ""
+    reference_range_low: Optional[float] = None
+    reference_range_high: Optional[float] = None
+    reference_range: Optional[str] = None
+    flag: Optional[str] = "NORMAL"  # NORMAL, LOW, HIGH, CRITICAL
+
+
+class LabOrderFinalizePayload(BaseModel):
+    order_id: Optional[int] = None
+    visit_id: Optional[int] = None
+    test_name: Optional[str] = "Lab Investigation"
+    parameters: Optional[List[LabParameterEntry]] = []
+    results: Optional[List[LabResultItem]] = None  # legacy compatibility
+    technician_remarks: Optional[str] = None
+    result_summary: Optional[str] = None
+    pdf_attachment_url: Optional[str] = None
     payment_mode: Optional[str] = "Cash"
     notes: Optional[str] = None
+
+
+class LabOrderFinalizeRequest(BaseModel):
+    visit_id: int
+    results: Optional[List[LabResultItem]] = []
+    parameters: Optional[List[LabParameterEntry]] = []
+    test_name: Optional[str] = "Lab Investigation"
+    result_summary: Optional[str] = None
+    pdf_attachment_url: Optional[str] = None
+    payment_mode: Optional[str] = "Cash"
+    notes: Optional[str] = None
+    technician_remarks: Optional[str] = None
 
 
 class LabResultResponse(BaseModel):

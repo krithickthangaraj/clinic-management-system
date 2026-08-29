@@ -315,7 +315,7 @@ export default function RXMedicationTable({
 
               return (
                 <tr
-                  key={row.s_no || idx}
+                  key={row.id ? `drug-${row.id}` : (row._key || `med-${row.drug_name || 'row'}-${idx}`)}
                   draggable
                   onDragStart={(e) => handleDragStart(e, idx)}
                   onDragOver={(e) => handleDragOver(e, idx)}

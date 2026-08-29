@@ -30,6 +30,11 @@ export const labService = {
     const response = await api.post('/lab/order/finalize', payload);
     return response.data;
   },
+
+  async finalizeOrderById(orderId, payload) {
+    const response = await api.post(`/lab/orders/${orderId}/finalize`, payload);
+    return response.data;
+  },
 };
 
 export default labService;

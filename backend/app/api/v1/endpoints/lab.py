@@ -17,6 +17,8 @@ from app.schemas.lab import (
     LabTestMasterCreate,
     LabTestMasterUpdate,
     LabQueueItem,
+    LabParameterEntry,
+    LabOrderFinalizePayload,
     LabOrderDetailsResponse,
     LabOrderFinalizeRequest,
     LabOrderFinalizeResponse,
@@ -165,18 +167,31 @@ async def get_lab_queue(
             continue
 
         # Check for ordered tests
-        ordered_tests_list = [t.test_name for t in (v.tests or []) if t.status in [TestStatus.ORDERED.value, TestStatus.IN_PROGRESS.value]]
+        ordered_tests_list = [
+            t.test_name for t in (v.tests or [])
+            if str(t.status or "").upper() in [TestStatus.ORDERED.value, TestStatus.IN_PROGRESS.value, "PENDING", "ORDERED"]
+        ]
         
         # Check for existing LabOrder
         lab_order = db.query(LabOrder).filter(LabOrder.visit_id == v.id).first()
-        
-        # If visit has tests ordered, status is REPORTS_PENDING, or has pending lab order
+        status_clean = str(v.status or "").lower()
+
+        # If visit status is REPORTS_READY, COMPLETED, or CONSULTED and no pending tests remain, exclude from pending lab queue
+        if status_clean in [VisitStatus.REPORTS_READY.value, VisitStatus.COMPLETED.value, VisitStatus.CONSULTED.value]:
+            if not ordered_tests_list:
+                continue
+
+        # If LabOrder is already COMPLETED and no pending test records remain, exclude from pending lab queue
+        if lab_order and str(lab_order.status or "").upper() == "COMPLETED" and not ordered_tests_list:
+            continue
+
+        # If visit has tests ordered, status is REPORTS_PENDING, or has pending/in_progress lab order
         is_pending = False
         if ordered_tests_list:
             is_pending = True
-        elif str(v.status or "").lower() == VisitStatus.REPORTS_PENDING.value:
+        elif status_clean == VisitStatus.REPORTS_PENDING.value:
             is_pending = True
-        elif lab_order and lab_order.status in ["PENDING", "IN_PROGRESS"]:
+        elif lab_order and str(lab_order.status or "").upper() in ["PENDING", "IN_PROGRESS"]:
             is_pending = True
 
         if not is_pending:
@@ -316,6 +331,154 @@ async def get_lab_order_details(
 # 4. Finalize Lab Order & "Close the Loop"
 # =============================================================================
 
+# =============================================================================
+# 4. Finalize Lab Order & "Close the Loop"
+# =============================================================================
+
+@router.post("/orders/{order_id}/finalize", response_model=LabOrderFinalizeResponse)
+async def finalize_lab_order_by_id(
+    order_id: int,
+    payload: LabOrderFinalizePayload,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role([UserRole.LAB, UserRole.ADMIN])),
+):
+    """
+    Atomic Lab Order Finalization:
+    1. Updates LabOrder status to COMPLETED and stores structured parameter results.
+    2. Synchronizes corresponding Test records in 'tests' table to COMPLETED.
+    3. Appends structured parameter summary to Visit.laboratory_reports.
+    4. Automatically transitions Visit.status to 'reports_ready'.
+    5. Triggers instant 'Lab Results Ready' alert on Doctor Desk.
+    """
+    order = db.query(LabOrder).filter(LabOrder.id == order_id).first()
+    visit = None
+    if order:
+        visit = db.query(Visit).options(joinedload(Visit.patient), joinedload(Visit.tests)).filter(Visit.id == order.visit_id).first()
+    
+    if not visit:
+        target_visit_id = payload.visit_id or order_id
+        visit = db.query(Visit).options(joinedload(Visit.patient), joinedload(Visit.tests)).filter(Visit.id == target_visit_id).first()
+    
+    if not visit:
+        raise HTTPException(status_code=404, detail="Associated visit not found")
+
+    if not order:
+        order = db.query(LabOrder).filter(LabOrder.visit_id == visit.id).first()
+    if not order:
+        order = LabOrder(
+            visit_id=visit.id,
+            patient_id=visit.patient_id,
+            technician_id=current_user.id,
+            status="COMPLETED",
+        )
+        db.add(order)
+        db.flush()
+
+    order.status = "COMPLETED"
+    order.technician_id = current_user.id
+    order.completed_at = datetime.utcnow()
+
+    # Clear previous results if updating
+    db.query(LabResult).filter(LabResult.lab_order_id == order.id).delete()
+
+    total_amount = order.total_amount or 0.0
+    abnormal_count = 0
+    summary_parts = []
+
+    if payload.parameters:
+        for param in payload.parameters:
+            is_ab = param.flag in ["LOW", "HIGH", "CRITICAL"]
+            if is_ab:
+                abnormal_count += 1
+
+            # Match or create master test record
+            master = db.query(LabTestMaster).filter(LabTestMaster.test_name.ilike(param.parameter_name.strip())).first()
+            if not master:
+                master = db.query(LabTestMaster).first()
+
+            ref_range = param.reference_range
+            if not ref_range and param.reference_range_low is not None and param.reference_range_high is not None:
+                ref_range = f"{param.reference_range_low} - {param.reference_range_high}"
+
+            lab_res = LabResult(
+                lab_order_id=order.id,
+                test_id=master.id if master else 1,
+                test_name=param.parameter_name,
+                result_value=param.observed_value,
+                unit=param.unit,
+                normal_range=ref_range,
+                is_abnormal=is_ab,
+                notes=param.flag,
+            )
+            db.add(lab_res)
+
+            flag_tag = f" [{param.flag.capitalize()}]" if is_ab else ""
+            summary_parts.append(f"{param.parameter_name}: {param.observed_value} {param.unit or ''}{flag_tag}".strip())
+
+    elif payload.results:
+        for res in payload.results:
+            master_test = db.query(LabTestMaster).filter(LabTestMaster.id == res.test_id).first()
+            price = master_test.price if master_test else 0.0
+            total_amount += price
+            if res.is_abnormal:
+                abnormal_count += 1
+
+            lab_result = LabResult(
+                lab_order_id=order.id,
+                test_id=res.test_id,
+                test_name=res.test_name,
+                result_value=res.result_value.strip(),
+                unit=res.unit or (master_test.unit if master_test else ""),
+                normal_range=res.normal_range or (master_test.normal_range if master_test else ""),
+                is_abnormal=res.is_abnormal,
+                notes=res.notes,
+            )
+            db.add(lab_result)
+            flag_str = " (H)" if res.is_abnormal else ""
+            summary_parts.append(f"{res.test_name}: {res.result_value} {res.unit or ''}{flag_str}".strip())
+
+    formatted_summary = payload.result_summary or " • ".join(summary_parts) or "All parameters normal."
+    order.summary_results = formatted_summary
+
+    # Synchronize 'tests' table records
+    clean_test_name = payload.test_name or "Lab Test"
+    db.query(Test).filter(
+        Test.visit_id == visit.id,
+    ).update({"status": TestStatus.COMPLETED.value, "results": formatted_summary, "completed_at": datetime.utcnow()}, synchronize_session=False)
+
+    # Synchronize Visit laboratory_reports summary
+    existing_reports = (visit.laboratory_reports or "").strip()
+    if clean_test_name in existing_reports:
+        visit.laboratory_reports = formatted_summary
+    elif existing_reports:
+        visit.laboratory_reports = f"{existing_reports}\n[{clean_test_name}]: {formatted_summary}"
+    else:
+        visit.laboratory_reports = formatted_summary
+
+    # Transition Visit Status to REPORTS_READY
+    visit.status = VisitStatus.REPORTS_READY.value
+    visit.updated_at = datetime.utcnow()
+
+    db.commit()
+    db.refresh(order)
+    db.refresh(visit)
+
+    patient_name = visit.patient.name if visit.patient else f"Patient #{visit.patient_id}"
+
+    return LabOrderFinalizeResponse(
+        success=True,
+        message=f"Lab order for '{clean_test_name}' finalized and synchronized with Doctor Desk.",
+        order_id=order.id,
+        visit_id=visit.id,
+        patient_name=patient_name,
+        summary_results=formatted_summary,
+        total_tests_processed=len(payload.parameters or payload.results or []),
+        total_abnormal_flags=abnormal_count,
+        total_amount=round(total_amount, 2),
+        completed_at=order.completed_at,
+    )
+
+
 @router.post("/order/finalize", response_model=LabOrderFinalizeResponse)
 async def finalize_lab_order(
     payload: LabOrderFinalizeRequest,
@@ -327,7 +490,7 @@ async def finalize_lab_order(
     1. Records LabOrder and LabResult entities with abnormal flags.
     2. Formats clinical summary string (e.g. 'Hb: 11.3 g/dL, Creat: 0.65 mg/dL').
     3. Automatically updates visit.laboratory_reports so Doctor's Desk instantly reflects results.
-    4. Marks all ordered Test items as COMPLETED.
+    4. Marks all ordered Test items as COMPLETED and transitions Visit.status to 'reports_ready'.
     """
     visit = (
         db.query(Visit)
@@ -339,7 +502,7 @@ async def finalize_lab_order(
     if not visit:
         raise HTTPException(status_code=404, detail="Visit not found")
 
-    if not payload.results:
+    if not payload.results and not payload.parameters:
         raise HTTPException(status_code=400, detail="At least one test result is required to finalize report")
 
     # 1. Fetch or Create LabOrder
@@ -356,7 +519,6 @@ async def finalize_lab_order(
     else:
         lab_order.technician_id = current_user.id
         lab_order.status = "COMPLETED"
-        # Clear previous results if updating
         db.query(LabResult).filter(LabResult.lab_order_id == lab_order.id).delete()
 
     # 2. Insert LabResults and calculate bill & summary
@@ -364,33 +526,61 @@ async def finalize_lab_order(
     abnormal_count = 0
     summary_parts = []
 
-    for res in payload.results:
-        # Fetch master test for price and normal range fallback
-        master_test = db.query(LabTestMaster).filter(LabTestMaster.id == res.test_id).first()
-        price = master_test.price if master_test else 0.0
-        total_amount += price
+    if payload.parameters:
+        for param in payload.parameters:
+            is_ab = param.flag in ["LOW", "HIGH", "CRITICAL"]
+            if is_ab:
+                abnormal_count += 1
 
-        if res.is_abnormal:
-            abnormal_count += 1
+            master = db.query(LabTestMaster).filter(LabTestMaster.test_name.ilike(param.parameter_name.strip())).first()
+            if not master:
+                master = db.query(LabTestMaster).first()
 
-        lab_result = LabResult(
-            lab_order_id=lab_order.id,
-            test_id=res.test_id,
-            test_name=res.test_name,
-            result_value=res.result_value.strip(),
-            unit=res.unit or (master_test.unit if master_test else ""),
-            normal_range=res.normal_range or (master_test.normal_range if master_test else ""),
-            is_abnormal=res.is_abnormal,
-            notes=res.notes,
-        )
-        db.add(lab_result)
+            ref_range = param.reference_range
+            if not ref_range and param.reference_range_low is not None and param.reference_range_high is not None:
+                ref_range = f"{param.reference_range_low} - {param.reference_range_high}"
 
-        # Build concise summary representation
-        unit_str = f" {res.unit}" if res.unit and res.unit.lower() not in ["profile", "routine"] else ""
-        flag_str = " (H)" if res.is_abnormal else ""
-        summary_parts.append(f"{res.test_name}: {res.result_value}{unit_str}{flag_str}")
+            lab_res = LabResult(
+                lab_order_id=lab_order.id,
+                test_id=master.id if master else 1,
+                test_name=param.parameter_name,
+                result_value=param.observed_value,
+                unit=param.unit,
+                normal_range=ref_range,
+                is_abnormal=is_ab,
+                notes=param.flag,
+            )
+            db.add(lab_res)
 
-    formatted_summary = ", ".join(summary_parts)
+            flag_tag = f" [{param.flag.capitalize()}]" if is_ab else ""
+            summary_parts.append(f"{param.parameter_name}: {param.observed_value} {param.unit or ''}{flag_tag}".strip())
+
+    elif payload.results:
+        for res in payload.results:
+            master_test = db.query(LabTestMaster).filter(LabTestMaster.id == res.test_id).first()
+            price = master_test.price if master_test else 0.0
+            total_amount += price
+
+            if res.is_abnormal:
+                abnormal_count += 1
+
+            lab_result = LabResult(
+                lab_order_id=lab_order.id,
+                test_id=res.test_id,
+                test_name=res.test_name,
+                result_value=res.result_value.strip(),
+                unit=res.unit or (master_test.unit if master_test else ""),
+                normal_range=res.normal_range or (master_test.normal_range if master_test else ""),
+                is_abnormal=res.is_abnormal,
+                notes=res.notes,
+            )
+            db.add(lab_result)
+
+            unit_str = f" {res.unit}" if res.unit and res.unit.lower() not in ["profile", "routine"] else ""
+            flag_str = " (H)" if res.is_abnormal else ""
+            summary_parts.append(f"{res.test_name}: {res.result_value}{unit_str}{flag_str}")
+
+    formatted_summary = payload.result_summary or " • ".join(summary_parts)
 
     # 3. Update LabOrder details
     lab_order.total_amount = round(total_amount, 2)
@@ -422,7 +612,7 @@ async def finalize_lab_order(
         visit_id=visit.id,
         patient_name=patient_name,
         summary_results=formatted_summary,
-        total_tests_processed=len(payload.results),
+        total_tests_processed=len(payload.parameters or payload.results or []),
         total_abnormal_flags=abnormal_count,
         total_amount=round(total_amount, 2),
         completed_at=lab_order.completed_at,

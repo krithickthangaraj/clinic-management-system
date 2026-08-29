@@ -18,8 +18,10 @@ from app.schemas.pharmacy import (
     PharmacyItemUpdate,
     PharmacyItemResponse,
     PharmacyQueueItem,
+    BatchInfo,
     PrescribedMedicineMatch,
     PharmacyPrescriptionDetails,
+    DispenseItemRequest,
     DispenseRequest,
     DispenseResponse,
     StockReceiveRequest,
@@ -530,6 +532,7 @@ async def get_prescription_for_dispensing(
 
     doctor_name = resolve_clean_doctor_name(visit)
 
+    today = date.today()
     matches: List[PrescribedMedicineMatch] = []
     total_est = 0.0
     all_in_stock = True
@@ -539,37 +542,65 @@ async def get_prescription_for_dispensing(
         brand_query = (drug.brand_name or "").strip()
         drug_query = (drug.drug_name or "").strip()
 
-        # Find best matching inventory item
-        inventory_match = None
+        # Query matching inventory batches: prioritize brand match first
+        all_batches_raw = []
         if brand_query:
-            # 1. Exact or prefix match on brand name
-            inventory_match = (
-                db.query(PharmacyItem)
-                .filter(PharmacyItem.brand_name.ilike(f"{brand_query}%"))
-                .order_by(PharmacyItem.stock_quantity.desc())
-                .first()
-            )
-            if not inventory_match:
-                # 2. Substring match on brand name
-                inventory_match = (
-                    db.query(PharmacyItem)
-                    .filter(PharmacyItem.brand_name.ilike(f"%{brand_query}%"))
-                    .first()
+            brand_token = brand_query.split()[0]
+            batches = db.query(PharmacyItem).filter(PharmacyItem.brand_name.ilike(f"{brand_token}%")).order_by(PharmacyItem.expiry_date.asc(), PharmacyItem.stock_quantity.desc()).all()
+            if not batches:
+                batches = db.query(PharmacyItem).filter(PharmacyItem.brand_name.ilike(f"%{brand_query}%")).order_by(PharmacyItem.expiry_date.asc(), PharmacyItem.stock_quantity.desc()).all()
+            all_batches_raw = batches
+
+        if not all_batches_raw and drug_query:
+            drug_token = drug_query.split()[0]
+            all_batches_raw = db.query(PharmacyItem).filter(PharmacyItem.drug_name.ilike(f"%{drug_token}%")).order_by(PharmacyItem.expiry_date.asc(), PharmacyItem.stock_quantity.desc()).all()
+
+        available_batches_list: List[BatchInfo] = []
+        recommended_batch_id = None
+        fefo_found = False
+
+        for b in all_batches_raw:
+            is_near = b.expiry_date <= (today + timedelta(days=30)) if b.expiry_date else False
+            months_left = None
+            if b.expiry_date:
+                months_left = max(0, (b.expiry_date.year - today.year) * 12 + b.expiry_date.month - today.month)
+
+            is_fefo = False
+            # First non-expired batch with available stock is FEFO recommended
+            if not fefo_found and b.stock_quantity > 0 and (not b.expiry_date or b.expiry_date >= today):
+                is_fefo = True
+                fefo_found = True
+                recommended_batch_id = b.id
+
+            available_batches_list.append(
+                BatchInfo(
+                    batch_id=b.id,
+                    batch_number=b.batch_number,
+                    expiry_date=b.expiry_date,
+                    expiry_date_str=b.expiry_date.strftime("%b %Y") if b.expiry_date else "N/A",
+                    stock_quantity=b.stock_quantity,
+                    unit_price=b.unit_price,
+                    is_fefo_recommended=is_fefo,
+                    is_near_expiry=is_near,
+                    months_until_expiry=months_left,
                 )
-
-        if not inventory_match and drug_query:
-            # 3. Fallback match on generic drug name
-            inventory_match = (
-                db.query(PharmacyItem)
-                .filter(PharmacyItem.drug_name.ilike(f"%{drug_query.split()[0]}%"))
-                .first()
             )
 
-        unit_p = inventory_match.unit_price if inventory_match else 5.0  # Default ₹5 if unlisted
-        avail_stock = inventory_match.stock_quantity if inventory_match else 100
+        # Total available stock across all batches
+        total_stock = sum(b.stock_quantity for b in all_batches_raw)
+        
+        # Primary selected batch
+        primary_batch = None
+        if recommended_batch_id:
+            primary_batch = next((b for b in all_batches_raw if b.id == recommended_batch_id), None)
+        if not primary_batch and all_batches_raw:
+            primary_batch = all_batches_raw[0]
+
+        unit_p = primary_batch.unit_price if primary_batch else 5.0
+        avail_stock = primary_batch.stock_quantity if primary_batch else total_stock
         line_total = round(qty * unit_p, 2)
         total_est += line_total
-        has_stock = avail_stock >= qty
+        has_stock = total_stock >= qty
 
         if not has_stock:
             all_in_stock = False
@@ -577,24 +608,29 @@ async def get_prescription_for_dispensing(
         matches.append(
             PrescribedMedicineMatch(
                 s_no=drug.s_no or idx,
+                prescription_item_id=drug.id,
                 brand_name=drug.brand_name or drug.drug_name,
                 drug_name=drug.drug_name or "—",
                 dosage=drug.dosage or "1 Tab",
                 frequency=drug.frequency or "TDS",
                 days=drug.number_of_days or 1,
                 quantity=qty,
+                prescribed_quantity=qty,
                 instructions=drug.instructions,
-                matched_item_id=inventory_match.id if inventory_match else None,
-                matched_brand_name=inventory_match.brand_name if inventory_match else None,
-                batch_number=inventory_match.batch_number if inventory_match else "GEN-2026-001",
+                matched_item_id=primary_batch.id if primary_batch else None,
+                matched_brand_name=primary_batch.brand_name if primary_batch else None,
+                batch_number=primary_batch.batch_number if primary_batch else "GEN-2026-001",
                 available_stock=avail_stock,
                 unit_price=unit_p,
                 total_price=line_total,
                 is_in_stock=has_stock,
+                recommended_batch_id=recommended_batch_id,
+                available_batches=available_batches_list,
+                total_available_stock=total_stock,
             )
         )
 
-        # Extract daily token sequence integer
+    # Extract daily token sequence integer
     token_num = None
     if getattr(visit, "queue_number", None) and int(visit.queue_number) > 0:
         token_num = int(visit.queue_number)
@@ -620,24 +656,23 @@ async def get_prescription_for_dispensing(
 
 
 # -----------------------------------------------------------------------------
-# 4. Atomic Dispensing & Billing Transaction
+# 4. Atomic Multi-Batch & Partial Dispense Transaction
 # -----------------------------------------------------------------------------
 @router.post("/dispense/{visit_id}", response_model=DispenseResponse)
 async def dispense_prescription_and_bill(
     visit_id: int,
-    payload: DispenseRequest = None,
+    payload: Optional[DispenseRequest] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role([UserRole.PHARMACY, UserRole.ADMIN, UserRole.DOCTOR])),
 ):
     """
-    Atomic Dispensing Transaction:
+    Atomic Multi-Batch & Partial Dispense Transaction:
     1. Validates visit and prescription.
-    2. Validates available stock for each prescribed item.
-       (If quantity > stock_quantity, raises 400 Bad Request and aborts).
-    3. Deducts stock_quantity atomically in PharmacyItem.
-    4. Records PharmacyDispenseLog audit trail.
-    5. Updates visit status to DISPENSED.
-    6. Commits transaction and returns fulfillment summary.
+    2. Resolves selected batch for each item with row-level concurrency lock (with_for_update).
+    3. Validates stock availability against requested partial/full quantity.
+    4. Atomically deducts exact dispensed quantity and logs to PharmacyStockLog.
+    5. Records PharmacyDispenseLog audit trail.
+    6. Transitions visit status to DISPENSED.
     """
     visit = (
         db.query(Visit)
@@ -652,68 +687,106 @@ async def dispense_prescription_and_bill(
     if not visit or not visit.prescription:
         raise HTTPException(status_code=404, detail="Visit or Prescription not found")
 
-    drugs = visit.prescription.drugs or []
-    if not drugs:
-        raise HTTPException(status_code=400, detail="No prescribed drugs found to dispense")
+    items_to_dispense: List[DispenseItemRequest] = []
+    if payload and payload.dispensed_items:
+        items_to_dispense = payload.dispensed_items
+    elif payload and payload.items:
+        items_to_dispense = payload.items
+    else:
+        # Fallback to prescription drugs
+        drugs = visit.prescription.drugs or []
+        if not drugs:
+            raise HTTPException(status_code=400, detail="No prescribed drugs found to dispense")
+        for d in drugs:
+            items_to_dispense.append(
+                DispenseItemRequest(
+                    prescription_item_id=d.id,
+                    drug_name=d.drug_name,
+                    brand_name=d.brand_name,
+                    prescribed_quantity=d.quantity or 1,
+                    dispensed_quantity=d.quantity or 1,
+                    quantity=d.quantity or 1,
+                )
+            )
 
     dispensed_audit = []
     total_bill = 0.0
 
-    # Step 1: Verify Stock Availability for All Items
-    for drug in drugs:
-        qty = drug.quantity or 1
-        brand = (drug.brand_name or "").strip()
-        generic = (drug.drug_name or "").strip()
+    # Step 1: Atomic Row-Level Locking & Stock Verification
+    locked_items = []
+    for entry in items_to_dispense:
+        qty_to_dispense = entry.dispensed_quantity if entry.dispensed_quantity is not None else (entry.quantity or 1)
+        if qty_to_dispense <= 0:
+            continue
 
-        # Find inventory record
+        batch_id = entry.batch_id or entry.selected_batch_id or entry.item_id
         item = None
-        if brand:
-            item = db.query(PharmacyItem).filter(PharmacyItem.brand_name.ilike(f"{brand}%")).first()
+
+        if batch_id:
+            item = db.query(PharmacyItem).filter(PharmacyItem.id == batch_id).with_for_update().first()
             if not item:
-                item = db.query(PharmacyItem).filter(PharmacyItem.brand_name.ilike(f"%{brand}%")).first()
-        if not item and generic:
-            item = db.query(PharmacyItem).filter(PharmacyItem.drug_name.ilike(f"%{generic.split()[0]}%")).first()
+                raise HTTPException(status_code=404, detail=f"Pharmacy batch ID #{batch_id} not found")
+        else:
+            brand = (entry.brand_name or "").strip()
+            generic = (entry.drug_name or "").strip()
+            if brand:
+                brand_token = brand.split()[0]
+                item = db.query(PharmacyItem).filter(PharmacyItem.brand_name.ilike(f"{brand_token}%")).order_by(PharmacyItem.expiry_date.asc()).with_for_update().first()
+                if not item:
+                    item = db.query(PharmacyItem).filter(PharmacyItem.brand_name.ilike(f"%{brand}%")).order_by(PharmacyItem.expiry_date.asc()).with_for_update().first()
+            if not item and generic:
+                generic_token = generic.split()[0]
+                item = db.query(PharmacyItem).filter(PharmacyItem.drug_name.ilike(f"%{generic_token}%")).order_by(PharmacyItem.expiry_date.asc()).with_for_update().first()
 
         if item:
-            if item.stock_quantity < qty:
+            if item.stock_quantity < qty_to_dispense:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Insufficient stock for '{item.brand_name}'. Requested: {qty}, Available: {item.stock_quantity}",
+                    detail=f"Insufficient stock in Batch #{item.batch_number} for '{item.brand_name}'. Available: {item.stock_quantity}, Requested: {qty_to_dispense}"
                 )
+            locked_items.append((entry, item, qty_to_dispense))
+        else:
+            locked_items.append((entry, None, qty_to_dispense))
 
-    # Step 2: Atomic Stock Deduction
-    for drug in drugs:
-        qty = drug.quantity or 1
-        brand = (drug.brand_name or "").strip()
-        generic = (drug.drug_name or "").strip()
-
-        item = None
-        if brand:
-            item = db.query(PharmacyItem).filter(PharmacyItem.brand_name.ilike(f"{brand}%")).first()
-            if not item:
-                item = db.query(PharmacyItem).filter(PharmacyItem.brand_name.ilike(f"%{brand}%")).first()
-        if not item and generic:
-            item = db.query(PharmacyItem).filter(PharmacyItem.drug_name.ilike(f"%{generic.split()[0]}%")).first()
-
-        unit_p = item.unit_price if item else 5.0
-        line_total = round(qty * unit_p, 2)
+    # Step 2: Atomic Stock Deduction & Stock Log Auditing
+    for entry, item, qty_to_dispense in locked_items:
+        unit_p = entry.unit_price if entry.unit_price is not None else (item.unit_price if item else 5.0)
+        line_total = round(qty_to_dispense * unit_p, 2)
         total_bill += line_total
 
         if item:
-            item.stock_quantity = max(0, item.stock_quantity - qty)
+            prev_stock = item.stock_quantity
+            item.stock_quantity = max(0, item.stock_quantity - qty_to_dispense)
             item.updated_at = datetime.utcnow()
 
+            # Record stock deduction log
+            stock_log = PharmacyStockLog(
+                item_id=item.id,
+                change_type="DISPENSE",
+                quantity_change=-qty_to_dispense,
+                previous_stock=prev_stock,
+                new_stock_level=item.stock_quantity,
+                reason=f"Dispensed for Visit #{visit.id} (Token #{visit.visit_number})",
+                reference_no=f"RX-{visit.prescription.id}",
+                user_id=current_user.id
+            )
+            db.add(stock_log)
+
         dispensed_audit.append({
-            "brand_name": brand or (item.brand_name if item else generic),
-            "drug_name": generic,
-            "quantity": qty,
+            "prescription_item_id": entry.prescription_item_id,
+            "drug_name": entry.drug_name or (item.drug_name if item else "—"),
+            "brand_name": entry.brand_name or (item.brand_name if item else "—"),
+            "batch_id": item.id if item else None,
+            "batch_number": item.batch_number if item else "N/A",
+            "prescribed_quantity": entry.prescribed_quantity or qty_to_dispense,
+            "dispensed_quantity": qty_to_dispense,
+            "is_partial": bool(entry.prescribed_quantity and qty_to_dispense < entry.prescribed_quantity),
             "unit_price": unit_p,
             "line_total": line_total,
-            "batch_number": item.batch_number if item else "N/A",
         })
 
     # Step 3: Record Audit Log
-    pmode = (payload.payment_mode if payload else None) or "Cash"
+    pmode = (payload.payment_mode if payload and payload.payment_mode else "Cash")
     dispense_log = PharmacyDispenseLog(
         visit_id=visit.id,
         prescription_id=visit.prescription.id,
@@ -734,9 +807,9 @@ async def dispense_prescription_and_bill(
 
     return DispenseResponse(
         success=True,
-        message=f"Prescription successfully dispensed. Total Amount: ₹{total_bill:.2f}",
+        message=f"Prescription dispensed successfully. Total Amount: ₹{total_bill:.2f}",
         visit_id=visit.id,
-        total_items_dispensed=len(drugs),
+        total_items_dispensed=len(dispensed_audit),
         total_amount=round(total_bill, 2),
         payment_mode=pmode,
         dispensed_at=dispense_log.dispensed_at,

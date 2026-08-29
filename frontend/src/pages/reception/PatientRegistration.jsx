@@ -9,11 +9,14 @@ import PatientSearch from '../../components/registration/PatientSearch';
 import DemographicsCard from '../../components/registration/DemographicsCard';
 import VitalsCard from '../../components/registration/VitalsCard';
 import ActionFooter from '../../components/registration/ActionFooter';
+import FamilyProfileSelectorModal from '../../components/registration/FamilyProfileSelectorModal';
+import POSBillingModal from '../../components/billing/POSBillingModal';
 import {
   CheckCircleIcon,
   AlertCircleIcon,
   PlusIcon,
   CloseIcon,
+  SearchIcon,
 } from '../../components/common/MedicalIcons';
 
 import './PatientRegistration.css';
@@ -67,6 +70,14 @@ export default function PatientRegistration() {
   const [isSaving, setIsSaving] = useState(false);
   const [successBanner, setSuccessBanner] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
+
+  // Family Phone Disambiguation State
+  const [showFamilyModal, setShowFamilyModal] = useState(false);
+  const [familyProfiles, setFamilyProfiles] = useState([]);
+  const [familyPhone, setFamilyPhone] = useState('');
+
+  // POS Billing Modal State
+  const [showBillingModal, setShowBillingModal] = useState(false);
 
   // Fetch today's visits list for reception queue
   const fetchTodayVisits = useCallback(async () => {
@@ -191,7 +202,7 @@ export default function PatientRegistration() {
   };
 
   // Demographics update handler
-  const handleDemographicsChange = (updatedFields) => {
+  const handleDemographicsChange = async (updatedFields) => {
     setDemographics((prev) => {
       const next = { ...prev, ...updatedFields };
       const errs = { ...validationErrors };
@@ -201,6 +212,21 @@ export default function PatientRegistration() {
       setValidationErrors(errs);
       return next;
     });
+
+    // Check for existing family member profiles when 10 digits entered
+    const enteredPhone = updatedFields.phone_number || updatedFields.phone;
+    if (enteredPhone && enteredPhone.length === 10 && !selectedPatient) {
+      try {
+        const matches = await patientService.getByPhone(enteredPhone);
+        if (matches && matches.length > 1) {
+          setFamilyPhone(enteredPhone);
+          setFamilyProfiles(matches);
+          setShowFamilyModal(true);
+        }
+      } catch (err) {
+        console.error('Family phone lookup error:', err);
+      }
+    }
   };
 
   // Vitals update handler
@@ -511,9 +537,42 @@ export default function PatientRegistration() {
         onSave={handleSave}
         onMakePrescription={handleMakePrescription}
         onMakeInvestigation={handleMakeInvestigation}
+        onCheckout={() => setShowBillingModal(true)}
         isSaving={isSaving}
         hasActiveVisit={Boolean(activeVisitId)}
         isEditMode={Boolean(selectedPatient)}
+      />
+
+      {/* Family Member Profile Disambiguation Modal */}
+      <FamilyProfileSelectorModal
+        isOpen={showFamilyModal}
+        phone={familyPhone}
+        profiles={familyProfiles}
+        onSelectProfile={(p) => {
+          setShowFamilyModal(false);
+          handleSelectPatient(p);
+        }}
+        onRegisterNewFamilyMember={() => {
+          setShowFamilyModal(false);
+          setSelectedPatient(null);
+          setActiveVisitId(null);
+          setDemographics((prev) => ({
+            ...INITIAL_DEMOGRAPHICS,
+            phone_number: familyPhone,
+            phone: familyPhone,
+          }));
+        }}
+        onClose={() => setShowFamilyModal(false)}
+      />
+
+      {/* Point-of-Sale (POS) Master Billing & Thermal Receipt Modal */}
+      <POSBillingModal
+        isOpen={showBillingModal}
+        visitId={activeVisitId}
+        onClose={() => setShowBillingModal(false)}
+        onSettled={() => {
+          fetchTodayVisits();
+        }}
       />
     </div>
   );

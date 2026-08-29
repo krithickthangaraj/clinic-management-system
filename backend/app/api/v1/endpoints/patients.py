@@ -54,6 +54,25 @@ async def search_patients(
     return [PatientResponse.model_validate(p) for p in patients]
 
 
+@router.get("/by-phone", response_model=List[PatientResponse])
+async def get_patients_by_phone(
+    phone: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Retrieve all family member patient profiles registered with a specific phone number."""
+    phone_clean = (phone or "").strip()
+    if not phone_clean:
+        return []
+    patients = (
+        db.query(Patient)
+        .filter(Patient.phone == phone_clean)
+        .order_by(Patient.created_at.desc())
+        .all()
+    )
+    return [PatientResponse.model_validate(p) for p in patients]
+
+
 @router.get("/{patient_id}/history")
 async def get_patient_history(
     patient_id: int,

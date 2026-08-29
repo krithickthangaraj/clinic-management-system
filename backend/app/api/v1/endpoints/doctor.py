@@ -153,7 +153,7 @@ async def get_doctor_dashboard(
             )
         )
         
-        if consultant and consultant.strip():
+        if isinstance(consultant, str) and consultant.strip():
             query = query.filter(Visit.consultant_assigned.ilike(f"%{consultant.strip()}%"))
         
         visits = query.order_by(Visit.created_at.asc()).all()

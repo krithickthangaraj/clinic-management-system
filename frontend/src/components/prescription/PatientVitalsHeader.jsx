@@ -14,6 +14,8 @@ export default function PatientVitalsHeader({
   elapsedWaitMinutes = 0,
   onUpdateVital = () => {},
   onOpenHistory = null,
+  hasLabReports = false,
+  onOpenLabReport = null,
 }) {
   const [editingField, setEditingField] = useState(null);
   const [tempValue, setTempValue] = useState('');
@@ -93,13 +95,25 @@ export default function PatientVitalsHeader({
 
   const displayGender = patient?.gender || visit?.patient_gender || '—';
 
+  const rawAllergies =
+    patient?.allergies ||
+    patient?.allergy_history ||
+    visit?.allergies ||
+    visit?.patient?.allergies ||
+    [];
+  const allergiesList = Array.isArray(rawAllergies)
+    ? rawAllergies.map((a) => (typeof a === 'object' && a !== null ? a.value || a.substance || '' : String(a))).filter(Boolean)
+    : typeof rawAllergies === 'string' && rawAllergies.trim()
+    ? [rawAllergies.trim()]
+    : [];
+
   return (
     <header
       className="sticky top-0 z-40 bg-teal-50/80 backdrop-blur-md border-b border-teal-200/80 shadow-xs px-4 py-2 flex items-center justify-between gap-2 -mx-4 -mt-4 mb-4"
       data-testid="sticky-vitals-header"
     >
       {/* 1. Demographics Left Side (Single Line, Compact) */}
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="flex items-center gap-2 shrink-0 flex-wrap sm:flex-nowrap">
         <h2
           className="text-sm font-bold text-slate-900 tracking-tight whitespace-nowrap max-w-[150px] sm:max-w-[200px] xl:max-w-[260px] truncate"
           data-testid="patient-name-header"
@@ -118,6 +132,20 @@ export default function PatientVitalsHeader({
         <span className="inline-flex items-center h-5.5 px-1.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200/60 whitespace-nowrap">
           {displayAge} / {displayGender}
         </span>
+
+        {/* High-Visibility Persistent Allergy Warning Banner */}
+        {allergiesList.length > 0 && (
+          <div
+            className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-rose-50 text-rose-800 border border-rose-300 ring-1 ring-inset ring-rose-600/30 animate-pulse whitespace-nowrap shadow-2xs"
+            title={`Patient Allergies: ${allergiesList.join(', ')}`}
+          >
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-600"></span>
+            </span>
+            <span>⚠️ Allergy: {allergiesList.join(', ')}</span>
+          </div>
+        )}
 
         <span className="text-slate-300 hidden md:inline">&bull;</span>
 
@@ -367,7 +395,24 @@ export default function PatientVitalsHeader({
           </div>
         )}
 
-        {/* 10. Longitudinal History Drawer Trigger CTA */}
+        {/* 10. On-Demand Lab Reports Button (Rendered only when reports exist) */}
+        {hasLabReports && onOpenLabReport && (
+          <button
+            type="button"
+            onClick={onOpenLabReport}
+            className="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full text-[11px] font-bold bg-rose-50 hover:bg-rose-100 active:bg-rose-200 border border-rose-300 text-rose-800 shadow-xs transition-all cursor-pointer select-none ml-1.5 shrink-0"
+            title="View Verified Diagnostic Lab Reports"
+            data-testid="btn-view-lab-report"
+          >
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-600"></span>
+            </span>
+            <span>Lab Reports</span>
+          </button>
+        )}
+
+        {/* 11. Longitudinal History Drawer Trigger CTA */}
         {onOpenHistory && (
           <button
             type="button"

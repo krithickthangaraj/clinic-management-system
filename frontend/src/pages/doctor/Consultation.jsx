@@ -15,6 +15,7 @@ import PrescriptionFooter from '../../components/prescription/PrescriptionFooter
 import RXMedicationTable from '../../components/prescription/RXMedicationTable';
 import PrescriptionView from '../../components/PrescriptionView';
 import PatientHistoryDrawer from '../../components/doctor/PatientHistoryDrawer';
+import LabReportIframeModal from '../../components/prescription/LabReportIframeModal';
 
 import './RXConsultation.css';
 
@@ -32,6 +33,7 @@ export default function Consultation() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showPrescription, setShowPrescription] = useState(false);
+  const [showLabModal, setShowLabModal] = useState(false);
   const [successToast, setSuccessToast] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [isHistoryDrawerOpen, setIsHistoryDrawerOpen] = useState(false);
@@ -446,6 +448,8 @@ export default function Consultation() {
           elapsedWaitMinutes={elapsedMinutes}
           onUpdateVital={handleUpdateVital}
           onOpenHistory={() => setIsHistoryDrawerOpen(true)}
+          hasLabReports={Boolean(visit?.laboratory_reports || visit?.status === 'reports_ready')}
+          onOpenLabReport={() => setShowLabModal(true)}
         />
 
         {/* 2. ROW: Patient Medical History (Left) + Template Engine Section (Right) */}
@@ -511,6 +515,17 @@ export default function Consultation() {
         currentVisitId={visitId}
         activeMedicines={medicines}
         onCopyDrugToActiveRx={handleCopyDrug}
+      />
+
+      {/* 8. On-Demand Lab Report Iframe Modal */}
+      <LabReportIframeModal
+        isOpen={showLabModal}
+        onClose={() => setShowLabModal(false)}
+        reportsSummary={visit?.laboratory_reports || ''}
+        orderedInvestigations={(visit?.tests || []).map((t) => t.test_name)}
+        reportUrl={visit?.tests?.[0]?.report_url}
+        patientName={patient?.name || visit?.patient_name}
+        uhid={patient?.patient_id || visit?.patient_uhid}
       />
     </div>
   );

@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import desc
+from sqlalchemy import desc, func
 from app.models.patient import Patient
 from app.models.visit import Visit
 from app.models.vitals import Vitals
@@ -56,27 +56,32 @@ def register_patient_with_visit(
     """
     Register a new patient, create visit, and optionally record initial vitals.
     """
-    # Check if patient already exists by phone
-    existing_patient = db.query(Patient).filter(
-        Patient.phone == patient_data.phone
-    ).first()
+    # Match existing patient by BOTH Phone AND Normalized Name to support shared family phones
+    clean_phone = (patient_data.phone or "").strip()
+    clean_name = (patient_data.name or "").strip().lower()
+
+    existing_patient = None
+    if clean_phone and clean_name:
+        existing_patient = db.query(Patient).filter(
+            Patient.phone == clean_phone,
+            func.lower(Patient.name) == clean_name
+        ).first()
     
     if existing_patient:
         patient = existing_patient
         # Update details if provided
         for k, v in patient_data.model_dump(exclude_unset=True).items():
-            if v is not None and hasattr(patient, k):
+            if v is not None and hasattr(patient, k) and k not in ("patient_id", "id"):
                 setattr(patient, k, v)
         if not patient.patient_id:
             patient.patient_id = generate_patient_id(db)
         if not patient.barcode:
             patient.barcode = patient.patient_id
     else:
+        # Create NEW distinct family member / patient record with unique UHID
         data = patient_data.model_dump()
-        if not data.get("patient_id"):
-            data["patient_id"] = generate_patient_id(db)
-        if not data.get("barcode"):
-            data["barcode"] = data["patient_id"]
+        data["patient_id"] = generate_patient_id(db)
+        data["barcode"] = data["patient_id"]
         data["age"] = data.get("age_years", 0)  # legacy compatibility
         patient = Patient(**data)
         db.add(patient)

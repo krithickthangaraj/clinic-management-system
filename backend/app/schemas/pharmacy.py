@@ -57,14 +57,28 @@ class PharmacyQueueItem(BaseModel):
     pharmacy_status: str = "pending"
 
 
+class BatchInfo(BaseModel):
+    batch_id: int
+    batch_number: str
+    expiry_date: Optional[date] = None
+    expiry_date_str: Optional[str] = None
+    stock_quantity: int = 0
+    unit_price: float = 0.0
+    is_fefo_recommended: bool = False
+    is_near_expiry: bool = False
+    months_until_expiry: Optional[int] = None
+
+
 class PrescribedMedicineMatch(BaseModel):
     s_no: Optional[int] = 1
+    prescription_item_id: Optional[int] = None
     brand_name: str
     drug_name: str
     dosage: str
     frequency: str
     days: int
     quantity: int
+    prescribed_quantity: Optional[int] = None
     instructions: Optional[str] = None
     
     # Matched inventory details
@@ -75,6 +89,11 @@ class PrescribedMedicineMatch(BaseModel):
     unit_price: float = 0.0
     total_price: float = 0.0
     is_in_stock: bool = True
+
+    # Multi-batch FEFO support
+    recommended_batch_id: Optional[int] = None
+    available_batches: List[BatchInfo] = []
+    total_available_stock: int = 0
 
 
 class PharmacyPrescriptionDetails(BaseModel):
@@ -92,15 +111,29 @@ class PharmacyPrescriptionDetails(BaseModel):
 
 
 class DispenseItemRequest(BaseModel):
-    brand_name: str
-    quantity: int
+    prescription_item_id: Optional[int] = None
+    drug_name: Optional[str] = None
+    brand_name: Optional[str] = None
+    batch_id: Optional[int] = None
+    selected_batch_id: Optional[int] = None
     item_id: Optional[int] = None
+    prescribed_quantity: Optional[int] = None
+    dispensed_quantity: Optional[int] = None
+    quantity: Optional[int] = None
+    unit_price: Optional[float] = None
+    is_partial: Optional[bool] = False
+    line_subtotal: Optional[float] = None
 
 
 class DispenseRequest(BaseModel):
+    visit_id: Optional[int] = None
+    prescription_id: Optional[int] = None
     payment_mode: str = "Cash"
+    total_amount: Optional[float] = None
+    dispensed_items: Optional[List[DispenseItemRequest]] = None
+    items: Optional[List[DispenseItemRequest]] = None  # legacy compatibility
     custom_notes: Optional[str] = None
-    items: Optional[List[DispenseItemRequest]] = None
+    pharmacist_notes: Optional[str] = None
 
 
 class DispenseResponse(BaseModel):

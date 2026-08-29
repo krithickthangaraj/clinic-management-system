@@ -108,12 +108,20 @@ export default function PharmacyDashboard() {
   };
 
   // Confirm Dispensing Action
-  const handleConfirmDispense = async (details, paymentMode = 'Cash', totalAmount = 0) => {
+  const handleConfirmDispense = async (payloadOrDetails, paymentMode = 'Cash', totalAmount = 0) => {
     if (!selectedVisitId) return;
     try {
       setIsDispensing(true);
       setErrorMessage('');
-      await pharmacyService.dispense(selectedVisitId, { payment_mode: paymentMode, total_amount: totalAmount });
+
+      let payload = {};
+      if (payloadOrDetails && payloadOrDetails.dispensed_items) {
+        payload = payloadOrDetails;
+      } else {
+        payload = { payment_mode: paymentMode, total_amount: totalAmount };
+      }
+
+      await pharmacyService.dispense(selectedVisitId, payload);
       setSuccessMessage('✓ Medications successfully dispensed and stock deducted.');
       setSelectedVisitId(null);
       setPrescriptionDetails(null);

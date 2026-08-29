@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import labService from '../../services/labService';
+import LabParameterEntryModal from '../../components/lab/LabParameterEntryModal';
 import './LabDashboard.css';
 
 const CATEGORY_LIST = ['All', 'Hematology', 'Biochemistry', 'Serology', 'Clinical Pathology', 'Radiology'];
@@ -240,40 +241,23 @@ export default function LabDashboard() {
   };
 
   // Finalize Results and Send to Doctor
-  const handleFinalize = async (e) => {
-    e.preventDefault();
-    if (resultRows.length === 0) {
-      alert('Please include at least one test result.');
-      return;
-    }
-
-    const missingValue = resultRows.find((r) => !r.result_value.trim());
-    if (missingValue) {
-      const proceed = window.confirm(
-        `Test '${missingValue.test_name}' has no result value entered. Proceed anyway?`
-      );
-      if (!proceed) return;
-    }
-
+  const handleFinalizeModal = async (payload) => {
     setFinalizing(true);
     try {
-      const payload = {
-        visit_id: selectedVisitId,
-        results: resultRows.map((r) => ({
-          test_id: r.test_id,
-          test_name: r.test_name,
-          result_value: r.result_value.trim() || 'Completed',
-          unit: r.unit,
-          normal_range: r.normal_range,
-          is_abnormal: r.is_abnormal,
-          notes: r.notes,
-        })),
-        payment_mode: 'Cash',
+      const finalPayload = {
+        ...payload,
+        visit_id: payload.visit_id || selectedVisitId || orderDetails?.visit_id,
       };
 
-      const res = await labService.finalizeOrder(payload);
+      let res;
+      if (finalPayload.order_id) {
+        res = await labService.finalizeOrderById(finalPayload.order_id, finalPayload);
+      } else {
+        res = await labService.finalizeOrder(finalPayload);
+      }
+
       setSuccessMessage(
-        `Finalized laboratory report for ${res.patient_name}. Automatically synced to Doctor Desk!`
+        `✓ Lab order for '${payload.test_name || 'Investigation'}' finalized and synchronized with Doctor Desk.`
       );
       setSelectedVisitId(null);
       setOrderDetails(null);
@@ -606,199 +590,18 @@ export default function LabDashboard() {
       </main>
 
       {/* 4. Results Entry Modal (The Core Engine) */}
-      {selectedVisitId && (
-        <div className="lab-modal-backdrop">
-          <div className="lab-modal-card">
-            {/* Modal Header */}
-            <div className="lab-modal-header">
-              <div className="flex items-center gap-3">
-                <span className="font-bold text-sm">
-                  Patient Laboratory Investigation: {orderDetails?.patient_name || 'Loading…'}
-                </span>
-                {orderDetails && (
-                  <span className="px-2 py-0.5 bg-slate-800 border border-slate-700 text-teal-400 text-xs font-mono font-bold rounded">
-                    Token: {orderDetails.visit_number} &bull; ID: {orderDetails.patient_id}
-                  </span>
-                )}
-              </div>
-              <button
-                type="button"
-                className="text-slate-400 hover:text-white font-bold cursor-pointer"
-                onClick={() => setSelectedVisitId(null)}
-              >
-                ✕
-              </button>
-            </div>
-
-            {loadingOrder ? (
-              <div className="py-16 text-center text-slate-400 font-medium">
-                Loading clinical order parameters…
-              </div>
-            ) : (
-              <form onSubmit={handleFinalize}>
-                <div className="lab-modal-body">
-                  {/* Patient Info Strip */}
-                  <div className="p-3 bg-white border border-slate-200 rounded-lg flex flex-wrap items-center justify-between gap-4 text-xs">
-                    <div>
-                      <span className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Patient: </span>
-                      <strong className="text-slate-900">{orderDetails?.patient_name}</strong> ({orderDetails?.age_sex})
-                    </div>
-                    <div>
-                      <span className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Doctor: </span>
-                      <strong className="text-slate-800">{orderDetails?.doctor_name}</strong>
-                    </div>
-                    <div>
-                      <span className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Prescribed: </span>
-                      <span className="font-semibold text-teal-800">{orderDetails?.prescribed_tests?.join(', ') || 'General Investigations'}</span>
-                    </div>
-                  </div>
-
-                  {/* Add Extra Test Dropdown */}
-                  <div className="flex items-center gap-3 p-2 bg-slate-100 border border-slate-200 rounded-md">
-                    <span className="text-xs font-bold text-slate-700">Add Test to Order:</span>
-                    <select
-                      className="px-2.5 py-1 text-xs bg-white border border-slate-300 rounded font-medium text-slate-800 flex-1 max-w-sm"
-                      value={selectedAddTestId}
-                      onChange={(e) => {
-                        setSelectedAddTestId(e.target.value);
-                        handleAddTestToBatch(e.target.value);
-                      }}
-                      data-testid="select-add-test-batch"
-                    >
-                      <option value="">-- Select Standard Investigation from Catalog --</option>
-                      {masterTests.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.test_name} ({t.category}) &bull; Range: {t.normal_range} {t.unit}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Results Entry Grid Table */}
-                  <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-2xs">
-                    <table className="w-full text-left border-collapse text-xs">
-                      <thead>
-                        <tr className="bg-slate-100/80 border-b border-slate-200 text-[11px] font-bold text-slate-700 uppercase tracking-wider">
-                          <th className="py-2 px-2.5 w-10 text-center">S.No</th>
-                          <th className="py-2 px-3 w-56">Test Name</th>
-                          <th className="py-2 px-3 w-32">Result Value *</th>
-                          <th className="py-2 px-3 w-32 font-mono">Normal Range</th>
-                          <th className="py-2 px-2.5 w-20">Unit</th>
-                          <th className="py-2 px-3 w-28 text-center">Flag</th>
-                          <th className="py-2 px-3">Observations / Notes</th>
-                          <th className="py-2 px-2 w-10 text-center">✕</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 font-medium">
-                        {resultRows.map((row, idx) => (
-                          <tr key={idx} className={row.is_abnormal ? 'bg-rose-50/40' : ''}>
-                            <td className="py-2 px-2.5 text-center text-slate-400 font-mono">{idx + 1}</td>
-                            <td className="py-2 px-3 font-bold text-slate-900">{row.test_name}</td>
-                            <td className="py-2 px-3">
-                              <input
-                                type="text"
-                                placeholder="Enter value"
-                                required
-                                className={`w-full px-2.5 py-1 text-xs rounded border transition-all focus:outline-none ${
-                                  row.is_abnormal ? 'lab-input-abnormal' : 'lab-input-normal'
-                                }`}
-                                value={row.result_value}
-                                onChange={(e) => handleResultChange(idx, e.target.value)}
-                                data-testid={`input-result-value-${idx}`}
-                              />
-                            </td>
-                            <td className="py-2 px-3 font-mono text-slate-700 font-semibold text-[11px]">
-                              {row.normal_range || '—'}
-                            </td>
-                            <td className="py-2 px-2.5 font-mono text-slate-500 text-[11px]">{row.unit || '—'}</td>
-                            <td className="py-2 px-3 text-center">
-                              <button
-                                type="button"
-                                className={`px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer transition-all ${
-                                  row.is_abnormal ? 'lab-badge-abnormal' : 'lab-badge-normal'
-                                }`}
-                                onClick={() => handleToggleAbnormal(idx)}
-                                title="Click to manually toggle abnormal flag"
-                              >
-                                {row.is_abnormal ? 'ABNORMAL (H)' : 'NORMAL'}
-                              </button>
-                            </td>
-                            <td className="py-2 px-3">
-                              <input
-                                type="text"
-                                placeholder="e.g. Mildly elevated, Fasting confirmed"
-                                className="w-full px-2 py-1 text-xs border border-slate-200 rounded bg-white text-slate-700 focus:outline-none focus:ring-1 focus:ring-teal-600"
-                                value={row.notes}
-                                onChange={(e) => {
-                                  const val = e.target.value;
-                                  setResultRows((prev) => {
-                                    const u = [...prev];
-                                    u[idx] = { ...u[idx], notes: val };
-                                    return u;
-                                  });
-                                }}
-                              />
-                            </td>
-                            <td className="py-2 px-2 text-center">
-                              <button
-                                type="button"
-                                className="text-slate-400 hover:text-rose-600 font-bold cursor-pointer"
-                                onClick={() => handleRemoveRow(idx)}
-                                title="Remove test from batch"
-                              >
-                                ✕
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Abnormal Alert Box if flags detected */}
-                  {abnormalCountInBatch > 0 && (
-                    <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-md text-xs font-semibold text-rose-800 flex items-center gap-2">
-                      <svg className="w-4 h-4 text-rose-600 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                      </svg>
-                      <span>
-                        <strong>{abnormalCountInBatch} abnormal finding(s) detected:</strong> Values highlighted in red will be flagged directly on the Doctor's Desk.
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Modal Footer */}
-                <div className="lab-modal-footer">
-                  <div className="text-xs text-slate-600">
-                    Total Investigations Processed: <strong>{resultRows.length}</strong>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      className="px-3.5 py-1.5 border border-slate-300 rounded text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
-                      onClick={() => setSelectedVisitId(null)}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      className="px-4 py-1.5 bg-teal-700 hover:bg-teal-800 text-white rounded text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
-                      disabled={finalizing}
-                      data-testid="btn-finalize-results"
-                    >
-                      <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                      <span>{finalizing ? 'Finalizing…' : 'Finalize & Send to Doctor Desk'}</span>
-                    </button>
-                  </div>
-                </div>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
+      <LabParameterEntryModal
+        isOpen={Boolean(selectedVisitId && orderDetails)}
+        onClose={() => {
+          setSelectedVisitId(null);
+          setOrderDetails(null);
+        }}
+        visitId={selectedVisitId}
+        orderDetails={orderDetails}
+        masterTests={masterTests}
+        onFinalize={handleFinalizeModal}
+        isFinalizing={finalizing}
+      />
     </div>
   );
 }

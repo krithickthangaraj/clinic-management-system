@@ -10,6 +10,7 @@ export default function ActionFooter({
   onSave,
   onMakePrescription,
   onMakeInvestigation,
+  onCheckout = () => {},
   isSaving = false,
   hasActiveVisit = false,
   isEditMode = false,
@@ -47,6 +48,21 @@ export default function ActionFooter({
             <LabIcon className="btn-icon-svg" />
             <span>Make Investigation Report</span>
           </button>
+
+          {/* Button 2.5: POS Checkout & Master Billing */}
+          {hasActiveVisit && (
+            <button
+              type="button"
+              className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer active:scale-95 shrink-0"
+              onClick={onCheckout}
+              disabled={isSaving}
+              data-testid="btn-pos-checkout"
+              title="Open Point-of-Sale Master Billing & Thermal Receipt"
+            >
+              <span>💳</span>
+              <span>POS Billing &amp; Settle</span>
+            </button>
+          )}
 
           {/* Button 3: Save & Add New Patient (Primary Solid Color) */}
           <button

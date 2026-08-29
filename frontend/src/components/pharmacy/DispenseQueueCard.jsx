@@ -48,7 +48,7 @@ export default function DispenseQueueCard({
         <div className="flex items-center gap-1.5">
           <MonospaceDataTag
             value={`Token #${tokenNo}`}
-            variant="dark"
+            variant="teal"
             size="sm"
           />
           <span className="text-[11px] text-slate-500 font-medium">{elapsed}</span>

@@ -11,6 +11,11 @@ export const patientService = {
     return response.data
   },
 
+  async getByPhone(phone) {
+    const response = await api.get('/patients/by-phone', { params: { phone: (phone || '').trim() } })
+    return Array.isArray(response.data) ? response.data : []
+  },
+
   async getHistory(patientId) {
     const response = await api.get(`/patients/${patientId}/history`)
     return response.data
