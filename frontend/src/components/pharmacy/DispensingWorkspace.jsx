@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import MedicationDispenseRow from './MedicationDispenseRow';
 import { getDailyTokenNumber, formatDoctorDisplayName } from '../../utils/formatters';
+import { ClinicalBadge, MonospaceDataTag, TactileButton } from '../ui';
 
 /**
  * DispensingWorkspace - Right Pane (Flex-1) Master Dispensing & Stock Reconciliation Workspace
@@ -29,19 +30,18 @@ export default function DispensingWorkspace({
 
   if (!prescriptionDetails) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-12 bg-slate-50 text-center">
-        <div className="w-16 h-16 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center mb-4">
-          <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
-            <rect x="2" y="3" width="20" height="14" rx="2" />
-            <line x1="8" y1="21" x2="16" y2="21" />
-            <line x1="12" y1="17" x2="12" y2="21" />
+      <div className="flex-1 flex flex-col items-center justify-center p-12 bg-slate-50 text-center select-none">
+        <div className="w-16 h-16 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-200/60 flex items-center justify-center mb-4 shadow-xs">
+          <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+            <polyline points="22 4 12 14.01 9 11.01" />
           </svg>
         </div>
-        <h3 className="text-base font-extrabold text-slate-800">
-          No Prescription Selected
+        <h3 className="text-base font-extrabold text-slate-800 tracking-tight">
+          No Pending Prescriptions
         </h3>
-        <p className="text-xs text-slate-500 max-w-sm mt-1">
-          Select a patient prescription from the left queue to verify inventory, calculate unit counts, and complete dispensing.
+        <p className="text-xs text-slate-500 max-w-sm mt-1 leading-relaxed">
+          All patient orders have been fulfilled. New prescriptions finalized by doctors will automatically appear in the live queue.
         </p>
       </div>
     );
@@ -64,39 +64,40 @@ export default function DispensingWorkspace({
     : [];
 
   // Toggle verification for a row
-  const toggleVerify = (item) => {
-    const id = item.id || item.drug_id || item.prescription_item_id || item.drug_name;
-    const next = new Set(verifiedIds);
-    if (next.has(id)) {
-      next.delete(id);
-    } else {
-      next.add(id);
-    }
-    setVerifiedIds(next);
+  const handleToggleVerify = (itemKey) => {
+    setVerifiedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(itemKey)) {
+        next.delete(itemKey);
+      } else {
+        next.add(itemKey);
+      }
+      return next;
+    });
   };
 
-  // Select all / verify all
-  const verifyAll = () => {
+  // Select all or deselect all
+  const handleVerifyAll = () => {
     if (verifiedIds.size === items.length) {
       setVerifiedIds(new Set());
     } else {
-      const all = new Set(
-        items.map((i) => i.id || i.drug_id || i.prescription_item_id || i.drug_name)
-      );
-      setVerifiedIds(all);
+      const allKeys = new Set(items.map((it, idx) => it.matched_item_id || it.brand_name || idx));
+      setVerifiedIds(allKeys);
     }
   };
 
-  // Quantity updates
-  const handleQtyChange = (item, newQty) => {
-    const id = item.id || item.drug_id || item.prescription_item_id || item.drug_name;
-    setQuantities((prev) => ({ ...prev, [id]: newQty }));
+  // Track modified quantities
+  const handleQuantityChange = (itemKey, qty) => {
+    setQuantities((prev) => ({
+      ...prev,
+      [itemKey]: qty,
+    }));
   };
 
-  // Compute grand total
-  const grandTotal = items.reduce((acc, curr) => {
-    const id = curr.id || curr.drug_id || curr.prescription_item_id || curr.drug_name;
-    const qty = quantities[id] !== undefined ? quantities[id] : curr.calculated_units || curr.quantity || 10;
+  // Calculate bill total
+  const grandTotal = items.reduce((acc, curr, idx) => {
+    const key = curr.matched_item_id || curr.brand_name || idx;
+    const qty = quantities[key] !== undefined ? quantities[key] : (curr.quantity || 1);
     const price = parseFloat(curr.unit_price || 5.0);
     return acc + qty * price;
   }, 0);
@@ -108,7 +109,7 @@ export default function DispensingWorkspace({
       {/* 1. Patient Clinical Banner */}
       <div className="p-4 bg-slate-900 text-white flex items-center justify-between gap-4 shrink-0 shadow-sm">
         <div className="flex items-center gap-3.5 min-w-0">
-          <div className="w-11 h-11 rounded-xl bg-teal-600 font-extrabold text-white flex items-center justify-center text-sm shadow-inner shrink-0">
+          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-teal-600 to-teal-800 font-extrabold text-white flex items-center justify-center text-sm shadow-md border border-teal-500/30 shrink-0">
             {patientName
               .split(' ')
               .map((n) => n[0])
@@ -122,27 +123,28 @@ export default function DispensingWorkspace({
               <h2 className="font-extrabold text-sm sm:text-base text-white tracking-tight truncate">
                 {patientName}
               </h2>
-              <span className="px-2 py-0.5 rounded font-mono font-extrabold text-xs bg-teal-800 text-teal-100 border border-teal-600">
-                Token #{tokenNo}
-              </span>
+              <MonospaceDataTag
+                value={`Token #${tokenNo}`}
+                variant="teal"
+                size="sm"
+              />
             </div>
 
-            <div className="flex items-center gap-2 text-xs text-slate-300 mt-0.5 flex-wrap">
-              <span>{ageSex}</span>
+            <div className="flex items-center gap-2 text-xs text-slate-300 mt-1 flex-wrap">
+              <span className="font-medium">{ageSex}</span>
               <span>•</span>
-              <span className="font-mono text-teal-300">{uhid}</span>
+              <span className="font-mono text-teal-300 font-bold">{uhid}</span>
               <span>•</span>
-              <span>Dr. {doctorName.replace(/^Dr\.?\s*/i, '')}</span>
+              <span className="font-medium text-slate-200">{doctorName}</span>
             </div>
           </div>
         </div>
 
         {/* High-Visibility Allergy Flag */}
         {allergies.length > 0 ? (
-          <div className="px-3 py-1.5 rounded-xl bg-rose-950/80 border border-rose-500 text-rose-200 text-xs font-bold flex items-center gap-2 shrink-0 animate-pulse">
-            <span className="text-rose-400">⚠️ Allergy:</span>
-            <span>{allergies.join(', ')}</span>
-          </div>
+          <ClinicalBadge variant="rose" size="md" pulse icon={<span>⚠️</span>}>
+            Allergy: {allergies.join(', ')}
+          </ClinicalBadge>
         ) : (
           <div className="hidden sm:flex items-center gap-1.5 text-xs text-emerald-400 font-medium">
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -161,72 +163,57 @@ export default function DispensingWorkspace({
               <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
                 Prescribed Medications ({items.length})
               </span>
-              <span className="text-xs text-slate-500">
-                ({verifiedIds.size} of {items.length} verified)
-              </span>
+              <ClinicalBadge variant={allVerified ? 'emerald' : 'amber'} size="sm" mono>
+                {verifiedIds.size}/{items.length} verified
+              </ClinicalBadge>
             </div>
 
             <button
               type="button"
-              onClick={verifyAll}
-              className="text-xs font-bold text-teal-700 hover:text-teal-900 cursor-pointer"
+              onClick={handleVerifyAll}
+              className="text-xs font-bold text-teal-700 hover:text-teal-900 bg-teal-50 px-2.5 py-1 rounded-lg border border-teal-200 hover:bg-teal-100 transition-colors"
             >
-              {verifiedIds.size === items.length ? 'Uncheck All' : 'Verify All Items'}
+              {allVerified ? 'Deselect All' : 'Verify All Items'}
             </button>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-slate-200 bg-slate-100/60 text-[11px] font-extrabold text-slate-600 uppercase tracking-wider">
-                  <th className="py-2.5 px-3 w-12 text-center">Verify</th>
-                  <th className="py-2.5 px-2 w-8">#</th>
-                  <th className="py-2.5 px-3">Medication &amp; Clinical Regimen</th>
-                  <th className="py-2.5 px-3 text-center">Units To Dispense</th>
-                  <th className="py-2.5 px-3 text-center">Stock &amp; Batch</th>
-                  <th className="py-2.5 px-3 text-right">Unit Price</th>
-                  <th className="py-2.5 px-3 text-right">Subtotal</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="py-8 text-center text-xs text-slate-400">
-                      No medication records available for this prescription.
-                    </td>
-                  </tr>
-                ) : (
-                  items.map((item, idx) => {
-                    const id = item.id || item.drug_id || item.prescription_item_id || item.drug_name;
-                    return (
-                      <MedicationDispenseRow
-                        key={id || idx}
-                        item={{
-                          ...item,
-                          calculated_units: quantities[id] !== undefined ? quantities[id] : item.calculated_units,
-                        }}
-                        index={idx}
-                        isVerified={verifiedIds.has(id)}
-                        onToggleVerify={toggleVerify}
-                        onQuantityChange={handleQtyChange}
-                      />
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
+          <div className="divide-y divide-slate-100">
+            {items.map((item, index) => {
+              const itemKey = item.matched_item_id || item.brand_name || index;
+              const isVerified = verifiedIds.has(itemKey);
+              const customQty = quantities[itemKey] !== undefined ? quantities[itemKey] : item.quantity;
+
+              return (
+                <MedicationDispenseRow
+                  key={itemKey}
+                  item={item}
+                  index={index}
+                  isVerified={isVerified}
+                  onToggleVerify={() => handleToggleVerify(itemKey)}
+                  onQuantityChange={(qty) => handleQuantityChange(itemKey, qty)}
+                  currentQty={customQty}
+                  onOpenStockReplenish={onOpenStockReplenish}
+                />
+              );
+            })}
+
+            {items.length === 0 && (
+              <div className="p-8 text-center text-slate-400 text-xs">
+                No medication records available for this prescription.
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* 3. Fixed Summary Footer Action Bar */}
-      <div className="p-4 bg-white border-t border-slate-200 flex flex-wrap items-center justify-between gap-4 shrink-0 shadow-lg">
-        {/* Left: Verification Progress & Payment Selector */}
-        <div className="flex items-center gap-4 flex-wrap">
-          <div className="flex items-center gap-2">
+      {/* 3. Sticky Reconciliation Footer & Action CTAs */}
+      <div className="p-3.5 bg-white border-t border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-3 shrink-0">
+        {/* Left: Summary Chips */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200">
             <span
-              className={`w-3 h-3 rounded-full ${
-                allVerified ? 'bg-emerald-500' : 'bg-amber-500'
+              className={`w-2.5 h-2.5 rounded-full ${
+                allVerified ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'
               }`}
             />
             <span className="text-xs font-bold text-slate-700">
@@ -260,26 +247,20 @@ export default function DispensingWorkspace({
             </span>
           </div>
 
-          <button
-            type="button"
+          <TactileButton
             onClick={() => onDispense(prescriptionDetails, paymentMode, grandTotal)}
             disabled={isDispensing || items.length === 0}
-            className="min-h-[44px] px-6 py-2 bg-teal-700 hover:bg-teal-800 active:bg-teal-900 text-white text-xs font-extrabold rounded-xl shadow-xs transition-all cursor-pointer inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            loading={isDispensing}
+            variant="primary"
+            size="md"
+            icon={
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            }
           >
-            {isDispensing ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                <span>Dispensing...</span>
-              </>
-            ) : (
-              <>
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-                <span>Dispense &amp; Complete Order</span>
-              </>
-            )}
-          </button>
+            Dispense &amp; Complete Order
+          </TactileButton>
         </div>
       </div>
     </div>

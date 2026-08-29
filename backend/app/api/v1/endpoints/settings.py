@@ -376,3 +376,37 @@ async def change_my_password(
     user.hashed_password = get_password_hash(data.new_password)
     db.commit()
     return {"message": "Password changed successfully"}
+
+
+# ============================================================================
+# 5. CLINICAL UI DESIGN TOKENS & BRANDING CONFIGURATION
+# ============================================================================
+
+@router.get("/clinical-ui-tokens")
+async def get_clinical_ui_tokens(
+    db: Session = Depends(get_db)
+):
+    """
+    Retrieve unified Vercel-grade UI design tokens, clinical density rules,
+    and branding parameters for the Outpatient Enterprise Suite.
+    """
+    settings = db.query(HospitalSettings).first()
+    h_name = settings.hospital_name if settings and settings.hospital_name else "KONGU HOSPITAL"
+    h_sub = settings.tagline if settings and settings.tagline else "Clinical Enterprise Suite"
+
+    return {
+        "status": "success",
+        "clinic_branding": {
+            "name": h_name,
+            "sub_name": h_sub,
+            "primary_color": "#0f766e",
+            "accent_color": "#0d9488",
+            "badge_style": "vercel_inset_ring",
+        },
+        "density_rules": {
+            "table_row_height_px": 40,
+            "touch_target_min_px": 44,
+            "animation_curve": "cubic-bezier(0.16, 1, 0.3, 1)",
+        },
+        "default_consultant": "Dr. T.S.Jeyagowthaman",
+    }

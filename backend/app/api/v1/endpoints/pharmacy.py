@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, time
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session, joinedload
@@ -412,7 +412,9 @@ async def get_pharmacy_queue(
     Matches visits where doctor has completed consultation (COMPLETED / CONSULTED)
     and prescription has not yet been dispensed.
     """
-    recent_cutoff = datetime.utcnow() - timedelta(days=2)
+    start_today_local = datetime.combine(date.today(), time.min)
+    start_today_utc = datetime.combine(datetime.utcnow().date(), time.min)
+    earliest_today = min(start_today_local, start_today_utc)
 
     visits = (
         db.query(Visit)
@@ -422,7 +424,7 @@ async def get_pharmacy_queue(
             joinedload(Visit.doctor),
         )
         .filter(
-            Visit.created_at >= recent_cutoff,
+            Visit.created_at >= earliest_today,
             Visit.status.in_([
                 VisitStatus.COMPLETED.value,
                 VisitStatus.CONSULTED.value,

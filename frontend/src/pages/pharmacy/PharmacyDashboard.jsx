@@ -59,14 +59,22 @@ export default function PharmacyDashboard() {
       setQueue(q);
       setInventory(Array.isArray(inventoryData) ? inventoryData : []);
 
-      // Auto-select first pending item if none selected
-      if (q.length > 0 && !selectedVisitId) {
+      // Auto-select first pending item ONLY if an active pending order exists
+      if (q.length > 0) {
         const firstPending = q.find(
           (item) => String(item.pharmacy_status || item.status || '').toLowerCase() !== 'dispensed'
-        ) || q[0];
+        );
         if (firstPending) {
-          handleOpenDispense(firstPending.visit_id || firstPending.prescription_id);
+          if (!selectedVisitId) {
+            handleOpenDispense(firstPending.visit_id || firstPending.prescription_id);
+          }
+        } else if (!selectedVisitId) {
+          // Zero pending items: show clean workspace
+          setPrescriptionDetails(null);
         }
+      } else {
+        setPrescriptionDetails(null);
+        setSelectedVisitId(null);
       }
     } catch (err) {
       console.error('Failed to load pharmacy records:', err);
@@ -107,6 +115,8 @@ export default function PharmacyDashboard() {
       setErrorMessage('');
       await pharmacyService.dispense(selectedVisitId, { payment_mode: paymentMode, total_amount: totalAmount });
       setSuccessMessage('✓ Medications successfully dispensed and stock deducted.');
+      setSelectedVisitId(null);
+      setPrescriptionDetails(null);
       await fetchData(true);
       setTimeout(() => setSuccessMessage(''), 4000);
     } catch (err) {
